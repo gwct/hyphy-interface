@@ -1,0 +1,6 @@
+test/
+test-out/
+lib/__pycache__/
+lib/*.pyc
+branch-avgs/lib/__pycache__/
+branch-avgs/lib/*.pyc
