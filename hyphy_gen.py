@@ -8,13 +8,13 @@ import sys, os, re, argparse, lib.hpcore as hpcore, lib.hptree as hptree
 ############################################################
 # Options
 
-parser = argparse.ArgumentParser(description="codeml command generator");
+parser = argparse.ArgumentParser(description="HyPhy command generator");
 parser.add_argument("-i", dest="input", help="Directory of input FASTA alignments. Note: for -model anc-recon this should be a directory of Hyphy .json files.", default=False);
 parser.add_argument("-m", dest="model", help="The model to run. Options: mg94, mg94-local, rm-dup, fel, busted, fubar, absrel, anc-recon, slac, relax. Default: mg94", default="mg94");
 parser.add_argument("-s", dest="sep", help="The character to split the alignment filename on to obtain the gene ID. Default: none, use whole file name.", default=False);
 parser.add_argument("-o", dest="output", help="Desired output directory for aligned files. Job name (-n) will be appended to output directory name.", default=False);
 parser.add_argument("-n", dest="name", help="A short name for all files associated with this job.", default=False);
-parser.add_argument("-p", dest="path", help="The path to codeml. Default: codeml", default="codeml");
+parser.add_argument("-p", dest="path", help="The path to hyphy. Default: hyphy", default="hyphy");
 parser.add_argument("--overwrite", dest="overwrite", help="If the output directory already exists and you wish to overwrite it, set this option.", action="store_true", default=False);
 parser.add_argument("--outname", dest="outname", help="Use the end of the output directory path as the job name.", action="store_true", default=False);
 # IO options
