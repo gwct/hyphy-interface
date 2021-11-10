@@ -2,5 +2,6 @@ test/
 test-out/
 lib/__pycache__/
 lib/*.pyc
-branch-avgs/lib/__pycache__/
-branch-avgs/lib/*.pyc
+branch-rates/lib/__pycache__/
+branch-rates/lib/*.pyc
+*.code-workspace

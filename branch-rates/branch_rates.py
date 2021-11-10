@@ -6,6 +6,10 @@
 # 10.29.2021: Reformatted into a more project like script (GT)
 #############################################################################
 
+# time -p branch_avgs.py -i docs/data/trees/full-coding-astral-cf-rooted.csv -r 05-MolEvol/full-coding-slac/csv/ -s /mnt/beegfs/ek112884/murinae/DNDS_BY_SPERM_STAGE/HYPHY/SLAC/prot_list_LZinduced_edgeR_wholeGenome.ensemblOrthos.txt -f 05-MolEvol/full-coding-mg94-local-ds-filter-0.95quant.csv -o 05-MolEvol/full-coding-slac/branch-avgs-astral-lz-induced/ -n 63 --overwrite
+
+#############################################################################
+
 import sys
 import os
 import multiprocessing as mp
@@ -92,7 +96,7 @@ if __name__ == '__main__':
         # Only take files in both lists
 
         step_start_time = CORE.report_step(globs, step, step_start_time, "SUCCESS: " + str(len(globs['subset-files'])) + " loci will be included");
-        print(len(globs['csv-files']));
+        CORE.PWS("# INFO: " + str(len(globs['csv-files'])) + " loci included in final counts.")
         # Status update
 
     ########################## 
