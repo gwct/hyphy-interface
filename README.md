@@ -47,5 +47,12 @@ This method is being developed in the branch-rates folder.
 
 | Directory | Description | 
 | ------ | ----------- |
-| lib/ | General helper functions and code for branch calculations |
-| branch_rates.py | Interface script for method being developed to calculate rates per branch in a species tree while accounting for discordance |
+| branch-rates/ | Method being developed to calculate rates per branch in a species tree while accounting for discordance |
+| dev/ | Stuff we're still working on |
+| hyphy-analyses/ | A subtree of the [HyPhy analyses](https://github.com/veg/hyphy-analyses) repository for easy access to some of the models |
+| lib/ | General helper functions and model specific code |
+| fix_json.sh/ | A script to convert some values in HyPhy's output that are incompatible with Python's json reader |
+| get_tree_info.r/ | Converts a Newick formatted tree to a table in .csv format with nodes labeled as ape reads them |
+| hyphy_gen.py | Generates HyPhy commands given alignments, trees, and a model |
+| hypyh_to_csv.py | Converts and combines Hyphy json output to .csv format for easy analysis |
+| multiple_test_correction.r | A script to correct for multiple tests in the aBSREL model |
