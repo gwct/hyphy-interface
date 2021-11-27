@@ -60,6 +60,9 @@ def optParse(globs):
     parser.add_argument("-n", dest="num_procs", help="The number of processes to use. Default: 1", default=False);
     # User params
 
+    parser.add_argument("--rooted", dest="rooted_flag", help="Set to count convergent substitutions on rooted trees.", action="store_true", default=False);
+    # User options
+
     parser.add_argument("--info", dest="info_flag", help="Print some meta information about the program and exit. No other options required.", action="store_true", default=False);
     #parser.add_argument("--dryrun", dest="dryrun", help="With all options provided, set this to run through the whole pseudo-it pipeline without executing external commands.", action="store_true", default=False);
     parser.add_argument("--version", dest="version_flag", help="Simply print the version and exit. Can also be called as '-version', '-v', or '--v'", action="store_true", default=False);
@@ -87,6 +90,10 @@ def optParse(globs):
         globs['log-v'] = -1;
     globs['overwrite'] = args.overwrite;
     # Check run mode options.
+
+    if args.rooted_flag:
+        globs['rooted'] = True;
+    # Check the rooted option
 
     globs = inputPathCheck(args.tree_info_file, "file", True, "-i", globs, "tree-info-file");
     # Check the tree info file
@@ -169,6 +176,15 @@ def startProg(globs):
     CORE.printWrite(globs['logfilename'], globs['log-v'], "# " + "-" * 125);
     CORE.printWrite(globs['logfilename'], globs['log-v'], "# OPTIONS INFO:");    
     CORE.printWrite(globs['logfilename'], globs['log-v'], CORE.spacedOut("# Option", pad) + CORE.spacedOut("Current setting", opt_pad) + "Current action");      
+
+    if globs['rooted']:
+        rooted_info = "Convergent substitutions will be counted on rooted trees INSTEAD of substitution rates";
+    else:
+        rooted_info = "Substitution rates will be counted on unrooted tres";
+    CORE.printWrite(globs['logfilename'], globs['log-v'], CORE.spacedOut("# --rooted", pad) +
+                CORE.spacedOut(str(globs['rooted']), opt_pad) + 
+                rooted_info);        
+    # Reporting the --rooted option
 
     if globs['filter-file']:
         CORE.printWrite(globs['logfilename'], globs['log-v'], CORE.spacedOut("# -f", pad) +

@@ -96,7 +96,7 @@ if __name__ == '__main__':
         # Only take files in both lists
 
         step_start_time = CORE.report_step(globs, step, step_start_time, "SUCCESS: " + str(len(globs['subset-files'])) + " loci will be included");
-        CORE.PWS("# INFO: " + str(len(globs['csv-files'])) + " loci included in final counts.")
+        CORE.printWrite(globs['logfilename'], globs['log-v'], "# INFO: " + str(len(globs['csv-files'])) + " loci included in final counts.")
         # Status update
 
     ########################## 
@@ -149,7 +149,11 @@ if __name__ == '__main__':
     step = "Adding new headers";
     step_start_time = CORE.report_step(globs, step, False, "In progress...");
     # Status update
-    new_headers = ["ES.sum", "EN.sum", "S.sum", "N.sum", "num.genes.full", "num.genes.partial", "num.genes.no.clade"];
+
+    if globs['rooted']:
+        new_headers = ["cS", "cN", "cA", "mS", "mN", "mA", "num.genes.full", "num.genes.partial", "num.genes.no.clade"];
+    else:
+        new_headers = ["ES.sum", "EN.sum", "S.sum", "N.sum", "num.genes.full", "num.genes.partial", "num.genes.no.clade"];
     # The purpose of this script is to add some new columns to the tre csv, as defined here
 
     for clade in globs['branches']:
@@ -192,7 +196,7 @@ if __name__ == '__main__':
     with mp.Pool(processes=globs['num-procs']) as pool:
         branch_num = 1;
         new_branches = {};
-        for result in pool.imap_unordered(BRANCHES.branchSum, ((globs['branches'][branch], branch, globs['csv-rate-dir'], globs['csv-files'], globs['filter-files'], globs['subset-files']) for branch in branches)):
+        for result in pool.imap_unordered(BRANCHES.branchSum, ((globs['branches'][branch], branch, globs['csv-rate-dir'], globs['csv-files'], globs['filter-files'], globs['subset-files'], globs['rooted']) for branch in branches)):
             #print(result[0], result[1]);
             
             new_branches[result[0]] = result[1];
@@ -211,38 +215,40 @@ if __name__ == '__main__':
     step_start_time = CORE.report_step(globs, step, False, "In progress...");
     # Status update
 
-    avg_headers = ["avg.ES", "avg.EN", "avg.S", "avg.N", "dS", "dN", "dNdS"];
-    globs['headers'] += avg_headers;
+    if not globs['rooted']:
+        avg_headers = ["avg.ES", "avg.EN", "avg.S", "avg.N", "dS", "dN", "dNdS"];
+        globs['headers'] += avg_headers;
 
-    for clade in new_branches:
-    # For every clade in branches, add the new headers into the branches dictionary
+        for clade in new_branches:
+        # For every clade in branches, add the new headers into the branches dictionary
 
-        for nh in avg_headers:
-            if new_branches[clade]["node.type"] == "ROOT":
-                new_branches[clade][nh] = "NA";
-            else:
-                new_branches[clade][nh] = 0;
-        # Add in the new headers and initialize at 0, except for the root node
+            for nh in avg_headers:
+                if new_branches[clade]["node.type"] == "ROOT":
+                    new_branches[clade][nh] = "NA";
+                else:
+                    new_branches[clade][nh] = 0;
+            # Add in the new headers and initialize at 0, except for the root node
 
     with open(globs['output-file'], "w") as outfile:
         outfile.write(",".join(globs['headers']) + "\n")
         # Open the output file and write the headers, which now contain the new columns
 
         for branch in new_branches:
-            if new_branches[branch]["node.type"] != "ROOT" and (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']) != 0:
-                new_branches[branch]['avg.ES'] = new_branches[branch]['ES.sum']  / (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']);
-                new_branches[branch]['avg.EN'] = new_branches[branch]['EN.sum']  / (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']);
-                new_branches[branch]['avg.S'] = new_branches[branch]['S.sum']  / (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']);
-                new_branches[branch]['avg.N'] = new_branches[branch]['N.sum']  / (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']);
-            # If the branch is not the root and appears in some genes, then compute the averages.
+            if not globs['rooted']:
+                if new_branches[branch]["node.type"] != "ROOT" and (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']) != 0:
+                    new_branches[branch]['avg.ES'] = new_branches[branch]['ES.sum']  / (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']);
+                    new_branches[branch]['avg.EN'] = new_branches[branch]['EN.sum']  / (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']);
+                    new_branches[branch]['avg.S'] = new_branches[branch]['S.sum']  / (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']);
+                    new_branches[branch]['avg.N'] = new_branches[branch]['N.sum']  / (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']);
+                # If the branch is not the root and appears in some genes, then compute the averages.
 
-                new_branches[branch]['dS'] = new_branches[branch]['S.sum'] / new_branches[branch]['ES.sum']
-                new_branches[branch]['dN'] = new_branches[branch]['N.sum'] / new_branches[branch]['EN.sum']
-                new_branches[branch]['dNdS'] = new_branches[branch]['dN'] / new_branches[branch]['dS']
+                    new_branches[branch]['dS'] = new_branches[branch]['S.sum'] / new_branches[branch]['ES.sum']
+                    new_branches[branch]['dN'] = new_branches[branch]['N.sum'] / new_branches[branch]['EN.sum']
+                    new_branches[branch]['dNdS'] = new_branches[branch]['dN'] / new_branches[branch]['dS']
 
-                # new_branches[branch]['avg.dS'] = new_branches[branch]['avg.S'] / new_branches[branch]['avg.ES']
-                # new_branches[branch]['avg.dN'] = new_branches[branch]['avg.N'] / new_branches[branch]['avg.EN']
-                # new_branches[branch]['avg.dNdS'] = new_branches[branch]['avg.dN'] / new_branches[branch]['avg.dS']
+                    # new_branches[branch]['avg.dS'] = new_branches[branch]['avg.S'] / new_branches[branch]['avg.ES']
+                    # new_branches[branch]['avg.dN'] = new_branches[branch]['avg.N'] / new_branches[branch]['avg.EN']
+                    # new_branches[branch]['avg.dNdS'] = new_branches[branch]['avg.dN'] / new_branches[branch]['avg.dS']
             # After averaging ES, EN, S, and N, use them to calculate dS, dN, and dN/dS across all alignments
 
             outline = [];

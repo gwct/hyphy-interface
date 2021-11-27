@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 ############################################################
 # Generates commands and shell scripts for various PAML models
 ############################################################
@@ -25,6 +25,7 @@ parser.add_argument("-targetclades", dest="target_clades", help="A file or direc
 #parser.add_argument("-target", dest="target", help="A single or pair of species. The MRCA of the given species will be determined as the target lineage. Pairs should be separated by semi-colons and multiple targets separated by commas, e.g. 'targ1s1;targ1s2,targ2s1;targ2s2", default=False);
 parser.add_argument("-tb", dest="testbranches", help="A comma delimited list of species or branches that make up the test branches for RELAX.", default=False);
 parser.add_argument("-rb", dest="refbranches", help="A comma delimited list of species or branches that make up the reference branches for RELAX.", default=False);
+parser.add_argument("--savefit", dest="save_fit_opt", help="For use with mg94 and mg94-local models. If set, will save the fit file. Expects rooted tree files. Default: False", action="store_true", default=False);
 # Program options
 
 parser.add_argument("-part", dest="part", help="SLURM partition option.", default=False);
@@ -175,6 +176,8 @@ with open(output_file, "w") as outfile:
         if not os.path.isdir(treedir):
             hpcore.PWS("# Creating tree directory.", outfile);
             os.system("mkdir " + treedir);
+    if args.save_fit_opt:
+        hpcore.PWS(hpcore.spacedOut("# --savefit set:", pad) + "Fit file will be saved for mg94 and mg94-local models. Option ignored for all other models.", outfile);
     hpcore.PWS("# ----------------", outfile);
 
     hpcore.PWS("# SLURM OPTIONS", outfile);
@@ -195,11 +198,11 @@ with open(output_file, "w") as outfile:
     if args.model == "mg94":
         import lib.mg94 as mg94; 
         model_file = os.path.join(file_dir, "hyphy-analyses/FitMG94/FitMG94.bf");
-        mg94.generate(args.input, tree_input, model_file, args.genetrees, args.sep, args.path, args.output, logdir, outfile);
+        mg94.generate(args.input, tree_input, model_file, args.genetrees, args.save_fit_opt, args.sep, args.path, args.output, logdir, outfile);
     if args.model == "mg94-local":   
         import lib.mg94local as mg94local;
         model_file = os.path.join(file_dir, "hyphy-analyses/FitMG94/FitMG94.bf");
-        mg94local.generate(args.input, tree_input, model_file, args.genetrees, args.path, args.output, logdir, outfile);
+        mg94local.generate(args.input, tree_input, model_file, args.genetrees, args.save_fit_opt, args.path, args.output, logdir, outfile);
     if args.model == "rm-dup":   
         import lib.rmdup as rmdup;
         model_file = os.path.join(file_dir, "hyphy-analyses/remove-duplicates/remove-duplicates.bf");

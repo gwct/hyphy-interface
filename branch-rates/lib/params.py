@@ -49,6 +49,9 @@ def init():
         'output-file' : False,
         # Input options
 
+        'rooted' : False,
+        # A setting for ancestral substitution counting on rooted trees
+
         'csv-files' : [],
         'filter-files' : [],
         'subset-files' : [],

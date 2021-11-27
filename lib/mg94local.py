@@ -8,13 +8,16 @@ from collections import defaultdict
 
 ############################################################
 
-def generate(indir, tree_input, model_file, gt_opt, hyphy_path, outdir, logdir, outfile):
+def generate(indir, tree_input, model_file, gt_opt, fit_opt, hyphy_path, outdir, logdir, outfile):
     aligns = { os.path.splitext(f)[0] : { "aln-file" : os.path.join(indir, f), "tree" : False } for f in os.listdir(indir) if f.endswith(".fa") };
     # Read and sort the alignment file names
 
     for aln in aligns:
         if gt_opt:
-            tree_file = os.path.join(tree_input, aln, aln + ".treefile");
+            if fit_opt:
+                tree_file = os.path.join(tree_input, aln, aln + ".rooted.treefile");
+            else:
+                tree_file = os.path.join(tree_input, aln, aln + ".treefile");
         else:
             tree_file = tree_input;
 
@@ -56,7 +59,13 @@ def generate(indir, tree_input, model_file, gt_opt, hyphy_path, outdir, logdir, 
         cur_logfile = os.path.join(logdir, aln + ".log");
         # Get the control and output file names
 
-        hyphy_cmd = "hyphy " + model_file + " --alignment " + aligns[aln]['aln-file'] + " --tree " +  aligns[aln]['tree'] + " --type local --output " + cur_jsonfile + " &> " + cur_logfile 
+        hyphy_cmd = "hyphy " + model_file + " --alignment " + aligns[aln]['aln-file'] + " --tree " +  aligns[aln]['tree'] + " --type local --output " + cur_jsonfile;
+
+        if fit_opt:
+            cur_fitfile = os.path.join(outdir, aln + ".fit");
+            hyphy_cmd += " --rooted Yes --kill-zero-lengths Yes --save-fit " + cur_fitfile;
+
+        hyphy_cmd += " &> " + cur_logfile 
         outfile.write(hyphy_cmd + "\n");
         # Construct and write the hyphy command
 

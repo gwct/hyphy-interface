@@ -10,9 +10,10 @@ def branchSum(branch_sum_item):
 # Retrieve rates/counts for each branch in the species tree for each gene, if that branch exists
 # in the gene
 
-    cur_branch_dict, cur_branch, rates_dir, csv_files, filter_files, subset_files = branch_sum_item;
+    cur_branch_dict, cur_branch, rates_dir, csv_files, filter_files, subset_files, rooted = branch_sum_item;
 
     # print(cur_branch);
+    # print(cur_branch_dict);
     #core.PWS("# " + core.getDateTime() + " Starting branch " + cur_branch);
 
     if cur_branch_dict["node.type"] == "ROOT":
@@ -95,56 +96,94 @@ def branchSum(branch_sum_item):
         # discordance and the clade truly doesn't exist in this gene as a monophyly. Do not increment sums.
 
         elif len(branch_list) == len(max_split1):
-            cur_ES = float(max_line[4]);
-            cur_EN = float(max_line[5]);
-            cur_S = float(max_line[6]);
-            cur_N = float(max_line[7]);
-            # Parse the rates from the line corresponding to the maximal split
+            if not rooted:
+                cur_ES = float(max_line[4]);
+                cur_EN = float(max_line[5]);
+                cur_S = float(max_line[6]);
+                cur_N = float(max_line[7]);
+                # Parse the rates from the line corresponding to the maximal split
 
-            #if cur_ds_bl == 1e-10:
-            #    cur_branch_dict['num.genes.no.ds'] += 1;
-            #    cur_ds, cur_ds_bl, cur_dnds = 0, 0, 0;
-            #elif cur_dn_bl == 1e-10:
-            #    cur_branch_dict['num.genes.no.dn'] += 1;
-            #    cur_dn, cur_dn_bl, cur_dnds = 0, 0, 0;
+                #if cur_ds_bl == 1e-10:
+                #    cur_branch_dict['num.genes.no.ds'] += 1;
+                #    cur_ds, cur_ds_bl, cur_dnds = 0, 0, 0;
+                #elif cur_dn_bl == 1e-10:
+                #    cur_branch_dict['num.genes.no.dn'] += 1;
+                #    cur_dn, cur_dn_bl, cur_dnds = 0, 0, 0;
 
-            cur_branch_dict['num.genes.full'] += 1;
-            cur_branch_dict['ES.sum'] += cur_ES;
-            cur_branch_dict['EN.sum'] += cur_EN;
-            cur_branch_dict['S.sum'] += cur_S;
-            cur_branch_dict['N.sum'] += cur_N;
+                cur_branch_dict['num.genes.full'] += 1;
+                cur_branch_dict['ES.sum'] += cur_ES;
+                cur_branch_dict['EN.sum'] += cur_EN;
+                cur_branch_dict['S.sum'] += cur_S;
+                cur_branch_dict['N.sum'] += cur_N;
+            
+            else:
+                cur_cS = float(max_line[8]);
+                cur_cN = float(max_line[9]);
+                cur_cA = float(max_line[10]);
+                cur_mS = float(max_line[11]);
+                cur_mN = float(max_line[12]);
+                cur_mA = float(max_line[13]);
+
+                # print(cur_mS);
+                # print(cur_branch_dict['mS']);
+                # print("------")
+
+                cur_branch_dict['num.genes.full'] += 1;
+                cur_branch_dict['cS'] += cur_cS;
+                cur_branch_dict['cN'] += cur_cN;
+                cur_branch_dict['cA'] += cur_cA;
+                cur_branch_dict['mS'] += cur_mS;
+                cur_branch_dict['mN'] += cur_mN;
+                cur_branch_dict['mA'] += cur_mA;
         # If the maximal subset of the current branch is equal to the current branch, increment sums for each new column.
 
         else:
-            cur_ES = float(max_line[4]);
-            cur_EN = float(max_line[5]);
-            cur_S = float(max_line[6]);
-            cur_N = float(max_line[7]);
-            # Parse the rates from the line corresponding to the maximal split
+            if not rooted:
+                cur_ES = float(max_line[4]);
+                cur_EN = float(max_line[5]);
+                cur_S = float(max_line[6]);
+                cur_N = float(max_line[7]);
+                # Parse the rates from the line corresponding to the maximal split
 
-            if len(branch_list) == 1:
-                print(cur_branch);
-                print(max_split1);
-                print(len(max_split1));
-                print(max_split2);
-                print(len(max_split2));
-                sys.exit();
-            # This shouldn't happen ... it would mean a tip was found in the opposite split of the maximal clade (which should just be the tip)
+                if len(branch_list) == 1:
+                    print(cur_branch);
+                    print(max_split1);
+                    print(len(max_split1));
+                    print(max_split2);
+                    print(len(max_split2));
+                    sys.exit();
+                # This shouldn't happen ... it would mean a tip was found in the opposite split of the maximal clade (which should just be the tip)
 
-            #if cur_ds_bl == 1e-10:
-            #    cur_branch_dict['num.genes.no.ds'] += 1;
-            #    cur_ds, cur_ds_bl, cur_dnds = 0, 0, 0;
-            #elif cur_dn_bl == 1e-10:
-            #    cur_branch_dict['num.genes.no.dn'] += 1;
-            #    cur_dn, cur_dn_bl, cur_dnds = 0, 0, 0;
-            # If there are no substitutions of a given type, the branch length will be 0, which I think Hyphy represents as 1e-10
-            # Count these here and set appropriate rates to 0
+                #if cur_ds_bl == 1e-10:
+                #    cur_branch_dict['num.genes.no.ds'] += 1;
+                #    cur_ds, cur_ds_bl, cur_dnds = 0, 0, 0;
+                #elif cur_dn_bl == 1e-10:
+                #    cur_branch_dict['num.genes.no.dn'] += 1;
+                #    cur_dn, cur_dn_bl, cur_dnds = 0, 0, 0;
+                # If there are no substitutions of a given type, the branch length will be 0, which I think Hyphy represents as 1e-10
+                # Count these here and set appropriate rates to 0
 
-            cur_branch_dict['num.genes.partial'] += 1;
-            cur_branch_dict['ES.sum'] += cur_ES;
-            cur_branch_dict['EN.sum'] += cur_EN;
-            cur_branch_dict['S.sum'] += cur_S;
-            cur_branch_dict['N.sum'] += cur_N;
+                cur_branch_dict['num.genes.partial'] += 1;
+                cur_branch_dict['ES.sum'] += cur_ES;
+                cur_branch_dict['EN.sum'] += cur_EN;
+                cur_branch_dict['S.sum'] += cur_S;
+                cur_branch_dict['N.sum'] += cur_N;
+            else:
+                cur_cS = float(max_line[8]);
+                cur_cN = float(max_line[9]);
+                cur_cA = float(max_line[10]);
+                cur_mS = float(max_line[11]);
+                cur_mN = float(max_line[12]);
+                cur_mA = float(max_line[13]);
+
+                cur_branch_dict['num.genes.partial'] += 1;
+                cur_branch_dict['cS'] += cur_cS;
+                cur_branch_dict['cN'] += cur_cN;
+                cur_branch_dict['cA'] += cur_cA;
+                cur_branch_dict['mS'] += cur_mS;
+                cur_branch_dict['mN'] += cur_mN;
+                cur_branch_dict['mA'] += cur_mA;
+
         # If there are no species from the current branch in the second split (not the maximal subset), then this 
         # is a case of missing data and we can still count the branch as existing in this gene tree. Increment
         # the sums for each new column.

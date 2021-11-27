@@ -58,3 +58,31 @@ def premStopCheck(seq, frame=1, allowlastcodon=False, rmlast=False):
     return is_stop, "".join(codon_list_orig);
 
 ############################################################
+
+def codonToAA(codon):
+# This function takes a DNA sequence as a single string and returns the
+# corresponding AA sequence.
+
+    codons = [''] * 5;
+    codons[0] = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG";
+    codons[1] = "---M---------------M---------------M----------------------------";
+    codons[2] = "TTTTTTTTTTTTTTTTCCCCCCCCCCCCCCCCAAAAAAAAAAAAAAAAGGGGGGGGGGGGGGGG";
+    codons[3] = "TTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGGTTTTCCCCAAAAGGGG";
+    codons[4] = "TCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAGTCAG";
+
+    if len(codon) != 3:
+        aa = 'X';
+    elif "-" in codon or "N" in codon or "?" in codon:
+        aa = "X";
+    elif "*" in codon:
+        aa = "*";
+    else:
+        first = codons[2].index(codon[0]);
+        second = codons[3].index(codon[1], first);
+        final = codons[4].index(codon[2], second);
+
+        aa = codons[0][final];
+
+    return aa;
+
+############################################################
