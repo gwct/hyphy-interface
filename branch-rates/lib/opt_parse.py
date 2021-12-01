@@ -49,7 +49,7 @@ def optParse(globs):
     # Check if psutil is installed for memory usage stats.
 
     parser = argparse.ArgumentParser(description="Generates concatenated dS, dN, and dN/dS estimates across all genes for a branch");
-    parser.add_argument("-i", dest="tree_info_file", help="csv file with species tree info, including clades for each node.", default=False);
+    parser.add_argument("-i", dest="tree_file", help="A file with the ROOTED species tree in Newick format.", default=False);
     parser.add_argument("-r", dest="rates_dir", help="The directory of csv files from a hyphy SLAC run.", default=False);
     parser.add_argument("-f", dest="filter_file", help="The file with the loci to excldue from the analysis.", default=False);
     parser.add_argument("-s", dest="subset_file", help="Subset of genes to include in the analysis.", default=False);
@@ -60,7 +60,7 @@ def optParse(globs):
     parser.add_argument("-n", dest="num_procs", help="The number of processes to use. Default: 1", default=False);
     # User params
 
-    parser.add_argument("--rooted", dest="rooted_flag", help="Set to count convergent substitutions on rooted trees.", action="store_true", default=False);
+    parser.add_argument("--rooted", dest="rooted_flag", help="Set to count convergent substitutions on rooted gene trees.", action="store_true", default=False);
     # User options
 
     parser.add_argument("--info", dest="info_flag", help="Print some meta information about the program and exit. No other options required.", action="store_true", default=False);
@@ -95,8 +95,8 @@ def optParse(globs):
         globs['rooted'] = True;
     # Check the rooted option
 
-    globs = inputPathCheck(args.tree_info_file, "file", True, "-i", globs, "tree-info-file");
-    # Check the tree info file
+    globs = inputPathCheck(args.tree_file, "file", True, "-i", globs, "tree-file");
+    # Check the tree file
 
     globs = inputPathCheck(args.rates_dir, "dir", True, "-r", globs, "csv-rate-dir");
     # Check the rates dir
@@ -165,7 +165,7 @@ def startProg(globs):
     CORE.printWrite(globs['logfilename'], globs['log-v'], "# " + "-" * 125);
     CORE.printWrite(globs['logfilename'], globs['log-v'], "# INPUT/OUTPUT INFO:");
 
-    CORE.printWrite(globs['logfilename'], globs['log-v'], CORE.spacedOut("# Tree info file:", pad) + globs['tree-info-file']);
+    CORE.printWrite(globs['logfilename'], globs['log-v'], CORE.spacedOut("# Tree file:", pad) + globs['tree-file']);
     CORE.printWrite(globs['logfilename'], globs['log-v'], CORE.spacedOut("# Rates directory:", pad) + globs['csv-rate-dir']);
     CORE.printWrite(globs['logfilename'], globs['log-v'], CORE.spacedOut("# Output directory:", pad) + globs['outdir']);
     CORE.printWrite(globs['logfilename'], globs['log-v'], CORE.spacedOut("# Output file:", pad) + globs['output-file']);

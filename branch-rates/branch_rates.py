@@ -16,6 +16,7 @@ import multiprocessing as mp
 import lib.core as CORE
 import lib.params as params
 import lib.opt_parse as OP
+import lib.tree as TREE
 import lib.branches as BRANCHES
 
 #############################################################################
@@ -91,6 +92,7 @@ if __name__ == '__main__':
 
         globs['subset-files'] = [ line.replace("\n","-mafft-cds.filter.csv") for line in open(globs['subset-file']) ];
         # Read in a subset of genes to include in analysis
+        ## TODO: generalize this
 
         globs['csv-files'] = list( set(globs['csv-files']) & set(globs['subset-files']) );
         # Only take files in both lists
@@ -101,84 +103,78 @@ if __name__ == '__main__':
 
     ########################## 
 
-    step = "Reading species tree information";
+    step = "Reading species tree";
     step_start_time = CORE.report_step(globs, step, False, "In progress...");
     # Status update
 
-    branches = {};
-    # The main dictionary for the tree info
+    globs['orig-tree-string'] = open(globs['tree-file']).read();
 
-    first = True;
-    branch_num = 1;
-    for line in open(globs['tree-info-file']):
-        line = line.strip().replace("\"", "").split(",");
-        # Parse the line of the file
+    try:
+        globs['tree-dict'], globs['tree-string'], globs['root'] = TREE.treeParse(globs['orig-tree-string'])
+    except:
+        CORE.errorOut("M1", "Error reading species tree!", globs);
 
-        if first:
-            globs['headers'] = line;        
-            first = False;
-            continue;
-        # If it's the first line, get the headers and skip
-
-        clade = line[globs['clade-index']]
-        globs['branches'][clade] = {};
-        branches[clade] = {};
-        # Get the clade and add it as a key to the main dictionary
-
-        for i in range(len(globs['headers'])):
-        # Add each header value into the dictionary for the current clade
-            if i == globs['clade-index']:
-                continue;
-            # The clade will actually be the key, so we don't need to add it into the dictionary
-
-            globs['branches'][clade][globs['headers'][i]] = line[i];
-            branches[clade][globs['headers'][i]] = line[i];
-            # Add the value
-
-        globs['branches'][clade]['branch.num'] = str(branch_num);
-        branches[clade]['branch.num'] = str(branch_num);
-        branch_num += 1;
-
-    globs['num-branches'] = len(globs['branches']);
-    step_start_time = CORE.report_step(globs, step, step_start_time, "SUCCESS: " + str(globs['num-branches']) + " branches read");
+    step_start_time = CORE.report_step(globs, step, step_start_time, "SUCCESS");
     # Status update
 
-    # Read in the tree info
+    # Read the tree
     ##########################
 
-    step = "Adding new headers";
+    step = "Initializing main output dictionary";
+    step_start_time = CORE.report_step(globs, step, False, "In progress...");
+    # Status update   
+
+    branches = {};
+
+    headers = ["node.label", "clade", "node.type", "orig.node.label"];
+    if globs['rooted']:
+        count_headers = ["num.genes.full", "num.genes.partial", "num.genes.descendant.counted", "num.genes.discordant", "num.genes.missing", "cS", "cN", "cA", "mS", "mN", "mA"];
+    else:
+        count_headers = ["num.genes.full", "num.genes.partial", "num.genes.descendant.counted", "num.genes.discordant", "num.genes.missing", "ES", "EN", "S", "N"];
+        avg_headers = ["avg.ES", "avg.EN", "avg.S", "avg.N", "dS", "dN", "dNdS"];
+    headers += count_headers;
+    # The headers/keys for each node in the species tree, depending on whether this is from a rooted ancestral sequences run or SLAC
+
+    for node in globs['tree-dict']:
+    # Setup the dictionary for each node in the species tree
+
+        branches[node] = {};
+        # Add the current node to the tracker dict
+
+        cur_clade = sorted(TREE.getClade(node, globs['tree-dict']));
+        branches[node]["clade"] = set(cur_clade);
+        # Get the clade descending from the current node
+
+        branches[node]["node.label"] = node;
+        branches[node]["node.type"] = globs['tree-dict'][node][2];
+        branches[node]["orig.node.label"] = globs['tree-dict'][node][3];
+        # Get the other info for the current node
+
+        for h in count_headers:
+            branches[node][h] = 0.0;
+        # Initialize all the counts for the current node
+
+    step_start_time = CORE.report_step(globs, step, step_start_time, "SUCCESS");
+    # Status update
+
+    # Initialize main dict
+    ##########################
+
+    step = "Splitting input files into chunks";
     step_start_time = CORE.report_step(globs, step, False, "In progress...");
     # Status update
 
-    if globs['rooted']:
-        new_headers = ["cS", "cN", "cA", "mS", "mN", "mA", "num.genes.full", "num.genes.partial", "num.genes.no.clade"];
-    else:
-        new_headers = ["ES.sum", "EN.sum", "S.sum", "N.sum", "num.genes.full", "num.genes.partial", "num.genes.no.clade"];
-    # The purpose of this script is to add some new columns to the tre csv, as defined here
+    chunks = CORE.chunks(globs['csv-files'], globs['chunk-size']);
+    num_chunks = str(len(chunks));
 
-    for clade in globs['branches']:
-    # For every clade in branches, add the new headers into the branches dictionary
-
-        for nh in new_headers:
-            if globs['branches'][clade]["node.type"] == "ROOT":
-                globs['branches'][clade][nh] = "NA";
-                branches[clade][nh] = "NA";
-            else:
-                globs['branches'][clade][nh] = 0;
-                branches[clade][nh] = 0;
-        # Add in the new headers and initialize at 0, except for the root node
-
-    globs['headers'] += new_headers;
-    # Combine the original and new headers for the output
-
-    step_start_time = CORE.report_step(globs, step, step_start_time, "SUCCESS: " + str(len(new_headers)) + " headers added");
+    step_start_time = CORE.report_step(globs, step, step_start_time, "SUCCESS: " + num_chunks + "  chunks of size " + str(globs['chunk-size']));
     # Status update
 
-    # Compile the headers for the new columns
+    # Split the files into chunks
     ##########################
 
     step = "Summing values over branches";
-    step_start_time = CORE.report_step(globs, step, False, "Processed 0 / " + str(globs['num-branches']) + " branches...", full_update=True);
+    step_start_time = CORE.report_step(globs, step, False, "Processed 0 / " + num_chunks + " chunks...", full_update=True);
     # Status update
 
     # branch_num = 1;
@@ -194,20 +190,25 @@ if __name__ == '__main__':
     ## Serial version for debugging
 
     with mp.Pool(processes=globs['num-procs']) as pool:
-        branch_num = 1;
+        chunk_num = 1;
         new_branches = {};
-        for result in pool.imap_unordered(BRANCHES.branchSum, ((globs['branches'][branch], branch, globs['csv-rate-dir'], globs['csv-files'], globs['filter-files'], globs['subset-files'], globs['rooted']) for branch in branches)):
-            #print(result[0], result[1]);
+        for result in pool.imap_unordered(BRANCHES.branchSumNEW, ((chunk, globs['csv-rate-dir'], globs['tree-dict'], globs['rooted']) for chunk in chunks)):
             
-            new_branches[result[0]] = result[1];
-            #branches.update(result);
-            cur_branch_time = CORE.report_step(globs, step, step_start_time, "Processed " + str(branch_num) + " / " + str(globs['num-branches']) + " branches...", full_update=True);
-            branch_num += 1;
+            if result == "stop":
+                sys.exit();
+
+            for node in globs['tree-dict']:
+                for h in count_headers:
+                    branches[node][h] += result[node][h];
+            # Sum the result
+
+            cur_chunk_time = CORE.report_step(globs, step, step_start_time, "Processed " + str(chunk_num) + " / " + num_chunks + " chunks...", full_update=True);
+            chunk_num += 1;
     ## Parallel version
 
     step_start_time = CORE.report_step(globs, step, step_start_time, "Success", full_update=True);
     # Status update
-
+    # sys.exit();
     # Get number of subs for each branch from each gene
     ##########################
 
@@ -216,47 +217,47 @@ if __name__ == '__main__':
     # Status update
 
     if not globs['rooted']:
-        avg_headers = ["avg.ES", "avg.EN", "avg.S", "avg.N", "dS", "dN", "dNdS"];
-        globs['headers'] += avg_headers;
+        
+        headers += avg_headers;
 
-        for clade in new_branches:
+        for node in branches:
         # For every clade in branches, add the new headers into the branches dictionary
 
-            for nh in avg_headers:
-                if new_branches[clade]["node.type"] == "ROOT":
-                    new_branches[clade][nh] = "NA";
+            for ah in avg_headers:
+                if branches[node]["node.type"] == "ROOT":
+                    branches[node][ah] = "NA";
                 else:
-                    new_branches[clade][nh] = 0;
+                    branches[node][ah] = 0.0;
             # Add in the new headers and initialize at 0, except for the root node
 
     with open(globs['output-file'], "w") as outfile:
-        outfile.write(",".join(globs['headers']) + "\n")
+        outfile.write(",".join(headers) + "\n")
         # Open the output file and write the headers, which now contain the new columns
 
-        for branch in new_branches:
+        for node in branches:
             if not globs['rooted']:
-                if new_branches[branch]["node.type"] != "ROOT" and (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']) != 0:
-                    new_branches[branch]['avg.ES'] = new_branches[branch]['ES.sum']  / (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']);
-                    new_branches[branch]['avg.EN'] = new_branches[branch]['EN.sum']  / (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']);
-                    new_branches[branch]['avg.S'] = new_branches[branch]['S.sum']  / (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']);
-                    new_branches[branch]['avg.N'] = new_branches[branch]['N.sum']  / (new_branches[branch]['num.genes.full'] + new_branches[branch]['num.genes.partial']);
+                if branches[node]["node.type"] != "ROOT" and (branches[node]['num.genes.full'] + branches[node]['num.genes.partial']) != 0:
+                    branches[node]['avg.ES'] = branches[node]['ES']  / (branches[node]['num.genes.full'] + branches[node]['num.genes.partial']);
+                    branches[node]['avg.EN'] = branches[node]['EN']  / (branches[node]['num.genes.full'] + branches[node]['num.genes.partial']);
+                    branches[node]['avg.S'] = branches[node]['S']  / (branches[node]['num.genes.full'] + branches[node]['num.genes.partial']);
+                    branches[node]['avg.N'] = branches[node]['N']  / (branches[node]['num.genes.full'] + branches[node]['num.genes.partial']);
                 # If the branch is not the root and appears in some genes, then compute the averages.
 
-                    new_branches[branch]['dS'] = new_branches[branch]['S.sum'] / new_branches[branch]['ES.sum']
-                    new_branches[branch]['dN'] = new_branches[branch]['N.sum'] / new_branches[branch]['EN.sum']
-                    new_branches[branch]['dNdS'] = new_branches[branch]['dN'] / new_branches[branch]['dS']
+                    branches[node]['dS'] = branches[node]['S'] / branches[node]['ES']
+                    branches[node]['dN'] = branches[node]['N'] / branches[node]['EN']
+                    branches[node]['dNdS'] = branches[node]['dN'] / branches[node]['dS']
 
                     # new_branches[branch]['avg.dS'] = new_branches[branch]['avg.S'] / new_branches[branch]['avg.ES']
                     # new_branches[branch]['avg.dN'] = new_branches[branch]['avg.N'] / new_branches[branch]['avg.EN']
                     # new_branches[branch]['avg.dNdS'] = new_branches[branch]['avg.dN'] / new_branches[branch]['avg.dS']
             # After averaging ES, EN, S, and N, use them to calculate dS, dN, and dN/dS across all alignments
 
+            branches[node]["clade"] = ";".join(sorted(list(branches[node]["clade"]), key=str.casefold));
+            # Sorts the speceies in the clade, while ignoring the case of the letters.
+
             outline = [];
-            for header in globs['headers']:
-                if header == 'clade':
-                    outline.append(branch);
-                else:
-                    outline.append(str(new_branches[branch][header]));
+            for h in headers:
+                outline.append(str(branches[node][h]));
             
             outline = ",".join(outline);
             outfile.write(outline + "\n");

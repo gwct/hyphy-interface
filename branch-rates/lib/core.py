@@ -130,6 +130,15 @@ def spacedOut(string, totlen, sep=" "):
 
 #############################################################################
 
+def chunks(l, n):
+# Splits a list l into even chunks of size n.
+    n = max(1, n)
+    #for i in range(0, len(l), n):
+    #    yield l[i:i+n];
+    return [ l[i:i+n] for i in range(0, len(l), n) ];
+
+#############################################################################
+
 def report_step(globs, step, step_start_time, step_status, start=False, full_update=False):
 # Uses psutil to gather memory and time info between steps and print them to the screen.
 
@@ -259,18 +268,9 @@ def endProg(globs):
     printWrite(globs['logfilename'], globs['log-v'], "# Output directory for this run:   " + globs['outdir']);
     printWrite(globs['logfilename'], globs['log-v'], "# Log file for this run:           " + globs['logfilename']);
 
-    # if globs['aln-stats-written']:
-    #     printWrite(globs['logfilename'], globs['log-v'], "# Alignment stats file:            " + globs['alnstatsfile']);    
-
-    # if globs['scf-stats-written']:
-    #     printWrite(globs['logfilename'], globs['log-v'], "# Concordance factor stats file:   " + globs['scfstatsfile']); 
-
-    # if globs['scf-tree-written']:
-    #     printWrite(globs['logfilename'], globs['log-v'], "# Concordance factor tree file:    " + globs['scftreefile']); 
-
     if globs['exit-code'] != 0:
         printWrite(globs['logfilename'], globs['log-v'], "#\n# ERROR: NON-ZERO EXIT STATUS.");
-        printWrite(globs['logfilename'], globs['log-v'], "# ERROR: DEGENOTATE FINISHED WITH ERRORS.");
+        printWrite(globs['logfilename'], globs['log-v'], "# ERROR: BRANCH RATES FINISHED WITH ERRORS.");
         printWrite(globs['logfilename'], globs['log-v'], "# ERROR: PLEASE CHECK THE LOG FILE FOR MORE INFO: " + globs['logfilename'] + "\n#");
 
     #print("# " + "=" * 125);
