@@ -21,6 +21,7 @@ parser.add_argument("--outname", dest="outname", help="Use the end of the output
 
 parser.add_argument("-tree", dest="tree", help="The species tree to use.", default=False);
 parser.add_argument("-genetrees", dest="genetrees", help="A directory containing gene trees for each locus (from iqtree_gt_gen.py).", default=False);
+parser.add_argument("-suffix", dest="tree_suffix", help="The extension/suffix to use when looking for tree files", default=False);
 parser.add_argument("-targetclades", dest="target_clades", help="A file or directory of files containing subtrees of target clades.", default=False);
 #parser.add_argument("-target", dest="target", help="A single or pair of species. The MRCA of the given species will be determined as the target lineage. Pairs should be separated by semi-colons and multiple targets separated by commas, e.g. 'targ1s1;targ1s2,targ2s1;targ2s2", default=False);
 parser.add_argument("-tb", dest="testbranches", help="A comma delimited list of species or branches that make up the test branches for RELAX.", default=False);
@@ -100,6 +101,10 @@ if args.model != "anc-recon":
         if not os.path.isdir(args.genetrees):
             sys.exit(" * Error 8: -genetrees: invalid directory name.");
         tree_input = os.path.abspath(args.genetrees);
+        if args.tree_suffix:
+            tree_ext = args.tree_suffix;
+        else:
+            tree_ext = ".treefile"
     else:
         sys.exit(" * Error 9: At least one of -tree or -genetrees must be provided.");
 
@@ -219,7 +224,7 @@ with open(output_file, "w") as outfile:
         fubar.generate(args.input, tree_input, args.genetrees, args.sep, args.path, args.output, logdir, outfile);
     if args.model == "absrel":
         import lib.absrel as absrel;
-        absrel.generate(args.input, tree_input, args.genetrees, args.sep, targets, args.path, args.output, treedir, logdir, outfile);
+        absrel.generate(args.input, tree_input, args.genetrees, tree_ext, args.sep, targets, args.path, args.output, treedir, logdir, outfile);
     if args.model == "anc-recon":
         import lib.ancrecon as ancrecon;
         model_file = os.path.join(file_dir, "hyphy-analyses/AncestralSequences/AncestralSequences.bf");

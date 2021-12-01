@@ -74,18 +74,19 @@ def assignTargetClade(aln, tree_file, targets, target_summary_dict, target_gene_
 
 ############################################################
 
-def generate(indir, tree_input, gt_opt, aln_id_delim, target_clades, hyphy_path, outdir, target_tree_dir, logdir, outfile):
+def generate(indir, tree_input, gt_opt, gt_extension, aln_id_delim, target_clades, hyphy_path, outdir, target_tree_dir, logdir, outfile):
     if aln_id_delim:
         aligns = { os.path.splitext(f)[0] : { "aln-file" : os.path.join(indir, f), "id" : f.split(aln_id_delim)[0], "tree" : False, "targets" : [] } for f in os.listdir(indir) if f.endswith(".fa") };
     else:
         aligns = { os.path.splitext(f)[0] : { "aln-file" : os.path.join(indir, f), "id" : "NA", "tree" : False, "targets" : [] } for f in os.listdir(indir) if f.endswith(".fa") };
     # Read and sort the alignment file names
 
-    target_summary = { t : 0 for t in target_clades };
-    target_gene_key = { t : {} for t in target_clades };
-    # Two dictionaries to keep track of target stats:
-    # target_summary is just a count of how many genes DON'T have each target branch: <input target subtree filename> : <# of genes without subtree>
-    # target_gene_dict keeps track of which node corresponds to each target branch in each clade: <input target subtree filename> : { <alignment id> : { <node that corresponds to target clade>, <# of species in target clade found> < list of species in target clade found> }}
+    if target_clades:
+        target_summary = { t : 0 for t in target_clades };
+        target_gene_key = { t : {} for t in target_clades };
+        # Two dictionaries to keep track of target stats:
+        # target_summary is just a count of how many genes DON'T have each target branch: <input target subtree filename> : <# of genes without subtree>
+        # target_gene_dict keeps track of which node corresponds to each target branch in each clade: <input target subtree filename> : { <alignment id> : { <node that corresponds to target clade>, <# of species in target clade found> < list of species in target clade found> }}
 
     if target_clades and not gt_opt:
         target_tree, target_labels, targets_found, target_summary, target_gene_key = assignTargetClade("all", tree_input, target_clades, target_summary, target_gene_key);
@@ -114,7 +115,13 @@ def generate(indir, tree_input, gt_opt, aln_id_delim, target_clades, hyphy_path,
                 tree_dir = os.path.join(tree_input, aln);
                 if os.path.isdir(tree_dir):
                     tree_dir_files = os.listdir(tree_dir);
-                    tree_file = "".join([ f for f in tree_dir_files if re.findall(aligns[aln]['id'] + '(.*).treefile', f) != [] and "rooted" not in f ]);
+                    tree_files = [ f for f in tree_dir_files if re.findall(aligns[aln]['id'] + '(.*)' + gt_extension, f) != [] and "rooted" not in f ];
+                    if len(tree_files) != 1:
+                        print(tree_files)
+                        outfile.write(" # Multiple trees found. Skipping: " + aln + "\n");
+                        tree_skipped += 1;
+                        continue;
+                    tree_file = "".join(tree_files);
                     if not tree_file:
                         continue;
                     tree_file = os.path.join(tree_dir, tree_file);
@@ -122,9 +129,9 @@ def generate(indir, tree_input, gt_opt, aln_id_delim, target_clades, hyphy_path,
                     tree_file = False;
             # If we need to split the input alignment directory to get the tree file name
             else:
-                tree_file = os.path.join(tree_input, aln, aln + ".treefile");
+                tree_file = os.path.join(tree_input, aln, aln + gt_extension);
             # Get the tree file name
-            
+
             if os.path.isfile(tree_file):
                 aligns[aln]['tree'] = tree_file;
             # Assign the current tree file to the alignment
@@ -166,6 +173,8 @@ def generate(indir, tree_input, gt_opt, aln_id_delim, target_clades, hyphy_path,
 
         # print(target_gene_key);
         # sys.exit();
+
+
 
         seq_dict = hpseq.fastaGetDict(aligns[aln]['aln-file']);
         prem_stop_flag = False

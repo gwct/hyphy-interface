@@ -24,7 +24,7 @@ class StrictDict(dict):
 #############################################################################
 
 def init():
-    globs = {
+    globs_init = {
         'version' : 'Beta 1.0',
         'releasedate' : "October 2021",
         'authors' : "Emily Kopania, Gregg Thomas",
@@ -41,13 +41,19 @@ def init():
         'call' : "",
         # Script call info
 
-        'tree-info-file' : False,
+        'tree-file' : False,
         'csv-rate-dir' : False,
         'filter-file' : False,
         'subset-file' : False,
         'outdir' : False,
         'output-file' : False,
         # Input options
+
+        'orig-tree-string' : False,
+        'tree-dict' : False,
+        'tree-string' : False,
+        'root' : False,
+        # Species tree stuff
 
         'rooted' : False,
         # A setting for ancestral substitution counting on rooted trees
@@ -76,6 +82,7 @@ def init():
         # I/O options
 
         'num-procs' : 1,
+        'chunk-size' : 50,
         # Number of processes to use
 
         'info' : False,
@@ -99,10 +106,10 @@ def init():
         # Internal stuff
     }
 
-    globs['logfilename'] = "branch-avgs-" + globs['startdatetime'] + ".errlog";
+    globs_init['logfilename'] = "branch-avgs-" + globs_init['startdatetime'] + ".errlog";
     # Add the runtime to the error log file name.
 
-    #globs = StrictDict(globs_init);
+    globs = StrictDict(globs_init);
     # Restrict the dict from having keys added to it after this
 
     return globs;
