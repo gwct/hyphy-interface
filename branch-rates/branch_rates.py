@@ -256,9 +256,16 @@ if __name__ == '__main__':
                     branches[node]['avg.N'] = branches[node]['N']  / (branches[node]['num.genes.full'] + branches[node]['num.genes.partial']);
                 # If the branch is not the root and appears in some genes, then compute the averages.
 
-                    branches[node]['dS'] = branches[node]['S'] / branches[node]['ES']
-                    branches[node]['dN'] = branches[node]['N'] / branches[node]['EN']
-                    branches[node]['dNdS'] = branches[node]['dN'] / branches[node]['dS']
+                    if branches[node]['ES']:
+                        branches[node]['dS'] = branches[node]['S'] / branches[node]['ES'];
+                        
+                    if branches[node]['EN']:
+                        branches[node]['dN'] = branches[node]['N'] / branches[node]['EN'];
+
+                    if branches[node]['dS']:
+                        branches[node]['dNdS'] = branches[node]['dN'] / branches[node]['dS'];
+                    else:
+                        branches[node]['dNdS'] = "NaN";
 
                     # new_branches[branch]['avg.dS'] = new_branches[branch]['avg.S'] / new_branches[branch]['avg.ES']
                     # new_branches[branch]['avg.dN'] = new_branches[branch]['avg.N'] / new_branches[branch]['avg.EN']
