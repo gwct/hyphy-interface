@@ -97,9 +97,22 @@ if __name__ == '__main__':
         globs['csv-files'] = list( set(globs['csv-files']) & set(globs['subset-files']) );
         # Only take files in both lists
 
-        step_start_time = CORE.report_step(globs, step, step_start_time, "SUCCESS: " + str(len(globs['subset-files'])) + " loci will be included");
-        CORE.printWrite(globs['logfilename'], globs['log-v'], "# INFO: " + str(len(globs['csv-files'])) + " loci included in final counts.")
+        step_start_time = CORE.report_step(globs, step, step_start_time, "SUCCESS: " + str(len(globs['subset-files'])) + " loci read");
+        CORE.printWrite(globs['logfilename'], globs['log-v'], "# INFO: " + str(len(globs['csv-files'])) + " loci included in final counts (intersect of input files and subset list).")
         # Status update
+
+    ##########################
+
+    step = "Writing list of included loci";
+    step_start_time = CORE.report_step(globs, step, False, "In progress...");
+    # Status update
+
+    loci_file = os.path.join(globs['outdir'], "counted-loci.txt");
+    with open(loci_file, "w") as locifile:
+        for f in globs['csv-files']:
+            locifile.write(f + "\n");
+    step_start_time = CORE.report_step(globs, step, step_start_time, "SUCCESS: counted-loci.txt written");
+    # Status update
 
     ########################## 
 
