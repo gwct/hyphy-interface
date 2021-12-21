@@ -230,7 +230,7 @@ def generate(indir, tree_input, gt_opt, gt_extension, aln_id_delim, target_clade
 
 ############################################################
 
-def parse(indir, features, outfile, pad):
+def parseOLD(indir, features, outfile, pad):
 
     if features:
         headers = ["file","id","chr","start","end","num ps branches", "ps pvals"];
@@ -309,22 +309,245 @@ def parse(indir, features, outfile, pad):
     #hpcore.PWS(hpcore.spacedOut("# Number unfinished:", pad) + str(num_unfinished), outfile);
 
 
+############################################################
 
 
+def parse(indir, features, outfile, pad):
+
+    alpha = 0.01;
+    print("alpha: ", alpha);
+
+    out_mode = "splits";
+    print("out mode: " + out_mode);
+    # clades or splits
+
+    ##########################
+
+    outdir = os.path.join(indir, "csv");
+    if not os.path.isdir(outdir):
+        os.system("mkdir " + outdir);
+    # Make the csv directory if it doesn't exist
+    ##########################
+
+    if features:
+        if out_mode == "splits":
+            gene_headers = ["file","id","chr","start","end","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha"];
+            branch_headers = ["file","id","chr","start","end","branch","split1","split2","baseline omega","pval","lrt","rate classes"];
+        elif out_mode == "clades":
+            gene_headers = ["file","id","chr","start","end","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha"];
+            branch_headers = ["file","id","chr","start","end","branch","clade","baseline omega","pval","lrt","rate classes"];
+    else:
+        if out_mode == "splits":
+            gene_headers = ["file","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha"];
+            branch_headers = ["file","branch","split1","split2","baseline omega","pval","lrt","rate classes"];
+        elif out_mode == "clades":
+            gene_headers = ["file","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha"];
+            branch_headers = ["file","branch","clade","baseline omega","pval","lrt","rate classes"];
+    outfile.write(",".join(gene_headers) + "\n");
+
+    # Write the output headers 
+    ##########################
 
 
+    hyphy_files = os.listdir(indir);
+    num_files = len(hyphy_files);
+    num_files_str = str(num_files);
+    num_files_len = len(num_files_str);
 
+    print("num files: ", num_files);
 
+    adj_alpha = alpha / num_files;
+    print("adjusted alpha: ", adj_alpha)
 
+    # Read align file names from input directory
+    ##########################
 
+    num_unfinished = 0;
+    # A count of the number of unfinished hyphy runs as determined by empty output files
 
+    num_skipped = 0;
+    # Number of files skipped because the tree is too small
 
+    num_sig_branches = 0;
+    num_sig_genes = 0;
 
+    counter = 0;
+    for f in os.listdir(indir):
+    # Loop over every file in the input directory
 
+        if counter % 500 == 0:
+            counter_str = str(counter);
+            while len(counter_str) != num_files_len:
+                counter_str = "0" + counter_str;
+            print ("> " + hpcore.getDateTime() + " " + counter_str + " / " + num_files_str);
+        counter += 1;
+        # Track progress
 
+        ##########################
 
+        #print(f);
 
+        cur_json_file = os.path.join(indir, f);
+        if not os.path.isfile(cur_json_file) or not cur_json_file.endswith(".json"):
+            continue;
+        if os.stat(cur_json_file).st_size == 0:
+            num_unfinished +=1 ;
+            continue;
+        # Get the current json file.
 
+        ##########################
+
+        with open(cur_json_file) as json_data:
+            cur_data = json.load(json_data);
+        # Read the Hyphy json file.
+
+        cur_tree = cur_data['input']['trees']['0'];
+        tinfo, tree, root = tp.treeParse(cur_tree);
+        # Read the tree from the json data.
+
+        tips = [ n for n in tinfo if tinfo[n][2] == 'tip' ];
+        if len(tips) < 3:
+            num_skipped += 1;
+            continue;
+        # If the current tree has fewer than 3 tips, skip
+
+        ##########################
+
+        if features:
+            if "-" in f:
+                fid = f.split("-")[0];
+            elif "." in f:
+                fid = f.split(".")[0];
+            else:
+                fid = f;
+            cur_feature = features[fid];
+        # Look up transcript/gene info for current gene to save in output, if metadata is provided.
+
+        ##########################
+
+        gene_info = { h : 0 for h in gene_headers };
+        # The headers for the current gene in the main output file
+
+        gene_info["file"] = f;
+        gene_info["baseline mean omega"] = cur_data["fits"]["Baseline MG94xREV"]["Rate Distributions"]["Per-branch omega"]["Mean"];
+        gene_info["baseline median omega"] = cur_data["fits"]["Baseline MG94xREV"]["Rate Distributions"]["Per-branch omega"]["Median"];
+        # Lookup the gene info in the json
+
+        ##########################
+
+        sig = False;
+
+        branch_outfile = os.path.join(outdir, f.replace(".json", ".csv"));
+        # Name the csv output file for the current gene
+
+        with open(branch_outfile, "w") as goutfile:
+        # Open the current gene's output csv file
+
+            goutfile.write(",".join(branch_headers) + "\n");
+            # Write the headers for the current csv file
+
+            splits = defaultdict(list);
+            # A dictionary that holds the splits for each branch
+            # <key> : <value> = <hyphy node label> : <[split1, split2]>
+            for n in tinfo:
+                if tinfo[n][2] == 'root':
+                    continue;
+                if tinfo[n][2] == 'tip':
+                    node_label = n;
+                else:
+                    node_label = tinfo[n][3];
+                # Skip the root, for tips use the tip label, for internal nodes use the hyphy label
+
+                split1 = sorted(tp.getClade(n, tinfo), key=str.casefold);
+                # Get the current clade and sort it
+
+                split2 = [ n2 for n2 in tinfo if tinfo[n2][2] == 'tip' and n2 not in split1 ];
+                split2 = sorted(split2, key=str.casefold);
+                # Get all other tips as the second split and sort it
+
+                splits[node_label].append(";".join(split1));
+                splits[node_label].append(";".join(split2));
+                # For unrooted trees there is no directionality, so get clades from both sides of each branch.
+            # For each node/branch in the tree, save the tip species that make up the clade.
+
+            ##########################
+
+            branch_info = {};
+            for node in splits:
+                #print("node1: " + node);
+                if features:
+                    if out_mode == "splits":
+                        branch_info[node] = { 'id' : fid, 'chr' : cur_feature['chrome'], 'start' : cur_feature['start'], 'end' : cur_feature['end'],
+                            "branch" : node, "split1" : "NA", "split2" : "NA", 'baseline omega' : "NA", 'pval' : "NA", 'lrt' : "NA", 'rate classes' : "NA" };
+                    elif out_mode == "clades":
+                        branch_info[node] = { 'id' : fid, 'chr' : cur_feature['chrome'], 'start' : cur_feature['start'], 'end' : cur_feature['end'],
+                            "branch" : node, "clade" : "NA", 'baseline omega' : "NA", 'pval' : "NA", 'lrt' : "NA", 'rate classes' : "NA" };                        
+                else:
+                    if out_mode == "splits":
+                        branch_info[node] = { "branch" : node ,"split1" : "NA", "split2" : "NA", 'baseline omega' : "NA", 'pval' : "NA", 'lrt' : "NA", 'rate classes' : "NA" };   
+                    elif out_mode == "clades":
+                        branch_info[node] = { "branch" : node ,"clades" : "NA", 'baseline omega' : "NA", 'pval' : "NA", 'lrt' : "NA", 'rate classes' : "NA" };   
+            # Initialize the output dictionary for the current branch.
+            # TODO: Generate via comprehension
+
+            ##########################
+
+            for node in cur_data["branch attributes"]["0"]:
+            # Loop over every node in the tree in the json data
+                #print("node2: " + node);
+                #print(cur_data["branch attributes"]["0"][node]);
+
+                gene_info["num branches"] += 1;
+
+                branch_info[node]['baseline omega'] = cur_data["branch attributes"]["0"][node]["Baseline MG94xREV omega ratio"];
+                branch_info[node]['pval'] = cur_data["branch attributes"]["0"][node]["Corrected P-value"];
+                if cur_data["branch attributes"]["0"][node]["Corrected P-value"] <= adj_alpha:
+                    sig = True;
+                    num_sig_branches += 1;
+                    gene_info["num branches pval less than alpha"] += 1;
+                    
+                branch_info[node]['lrt'] = cur_data["branch attributes"]["0"][node]["LRT"];
+                branch_info[node]['rate classes'] = cur_data["branch attributes"]["0"][node]["Rate classes"];
+
+                # dist_num = 1;
+                # for rate_dist in cur_data["branch attributes"]["0"][node]["Rate Distributions"]:
+                #     print(rate_dist);
+                
+                if out_mode == "splits":
+                    branch_info[node]["split1"] = splits[node][0];
+                    branch_info[node]["split2"] = splits[node][1];
+
+                    branch_outline = [f] + [ str(branch_info[node][h]) for h in branch_headers if h not in ["file"] ];
+                    #outfile.write(",".join(branch_outline) + "\n");
+                    goutfile.write(",".join(branch_outline) + "\n");
+
+                if out_mode == "clades":
+                    for clade in splits[node]:
+                        branch_info[node]["clade"] = clade;
+                        branch_outline = [f] + [ branch_info[node][h] for h in branch_headers if h not in ["file"] ];
+                        #outfile.write(",".join(branch_outline) + "\n");
+                        goutfile.write(",".join(branch_outline) + "\n");
+                # Ouput rate estimates for both clades of the current branch.
+            ## End json node loop
+            ##########################
+        ## Close gene csv file
+
+        if sig:
+            num_sig_genes += 1;
+        gene_outline = [ str(gene_info[h]) for h in gene_headers ];
+        outfile.write(",".join(gene_outline) + "\n");
+        # Write the output for the current gene
+
+    ## End file loop
+
+    hpcore.PWS("# ----------------", outfile);
+    hpcore.PWS(hpcore.spacedOut("# Number unfinished:", pad) + str(num_unfinished), outfile);
+    hpcore.PWS(hpcore.spacedOut("# Number skipped with only 2 species:", pad) + str(num_skipped), outfile);
+    hpcore.PWS(hpcore.spacedOut("# Number branches below alpha:", pad) + str(num_sig_branches), outfile);
+    hpcore.PWS(hpcore.spacedOut("# Number genes with at least 1 branch below alpha:", pad) + str(num_sig_genes), outfile);
+    # Report some stats
+
+############################################################
 
 
 

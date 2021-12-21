@@ -231,7 +231,7 @@ with open(output_file, "w") as outfile:
         ancrecon.generate(args.input, model_file, args.path, args.output, logdir, outfile);
     if args.model == "slac":
         import lib.slac as slac;
-        slac.generate(args.input, tree_input, args.genetrees, args.path, args.output, logdir, outfile);
+        slac.generate(args.input, tree_input, args.genetrees, tree_ext, args.path, args.output, logdir, outfile);
     if args.model == "relax":
         import lib.relax as relax;
         relax.generate(args.input, tree_input, tests, refs, args.genetrees, args.path, args.output, logdir, outfile)

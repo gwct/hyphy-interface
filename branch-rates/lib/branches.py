@@ -201,18 +201,26 @@ def branchSumNEW(branch_sum_item):
 # Retrieve rates/counts for each branch in the species tree for each gene, if that branch exists
 # in the gene
 
-    cur_files, rates_dir, tree_dict, rooted = branch_sum_item;
+    cur_files, rates_dir, tree_dict, model, corrected_alpha = branch_sum_item;
     # Unpack the passed items
+
+    branch_outlines = [];
 
     ##########################
 
     headers = ["node.label", "clade", "node.type", "orig.node.label"];
-    if rooted:
+    if model == 'slac':
         count_headers = ["num.genes.full", "num.genes.partial", "num.genes.descendant.counted", "num.genes.discordant", "num.genes.missing"];
-        sum_headers = ["cS", "cN", "cA", "mS", "mN", "mA"];
-    else:
+        sum_headers = ["ES", "EN", "S", "N"];   
+
+    elif model == 'absrel':
         count_headers = ["num.genes.full", "num.genes.partial", "num.genes.descendant.counted", "num.genes.discordant", "num.genes.missing"];
-        sum_headers = ["ES", "EN", "S", "N"];
+        sum_headers = ["num.ps.genes", "ps.gene.list"];
+
+    elif model == 'ancrecon':
+        count_headers = ["num.genes.full", "num.genes.partial", "num.genes.descendant.counted", "num.genes.discordant", "num.genes.missing"];
+        sum_headers = ["total subs", "total mns", "S", "N", "A", "mS", "mN", "mA"];
+
     headers += count_headers + sum_headers;
     # The headers/keys for each node in the species tree, depending on whether this is from a rooted ancestral sequences run or SLAC
 
@@ -231,7 +239,8 @@ def branchSumNEW(branch_sum_item):
         cur_dict[node] = {};
         # Add the current node to the tracker dict
 
-        cur_clade = sorted(TREE.getClade(node, tree_dict));
+        cur_clade = sorted(TREE.getClade(node, tree_dict), key=str.casefold);
+        
         cur_dict[node]["clade"] = set(cur_clade);
         # Get the clade descending from the current node
 
@@ -242,6 +251,8 @@ def branchSumNEW(branch_sum_item):
 
         for h in count_headers + sum_headers:
             cur_dict[node][h] = 0.0;
+        if model == 'absrel':
+            cur_dict[node]['ps.gene.list'] = [];
         # Initialize all the counts for the current node
 
         if tree_dict[node][2] == "tip":
@@ -275,6 +286,7 @@ def branchSumNEW(branch_sum_item):
         for line in open(infile):
         # Read the current file line by line
             if first:
+                #print(line);
                 first = False;
                 continue;
             # Skip the header line in the file
@@ -288,19 +300,20 @@ def branchSumNEW(branch_sum_item):
             gt_splits[line[1]] = { 'split1' : set(split1), 'split2' : set(split2) };
             # Store the splits in the gene tree dict
 
-            if rooted:
-                gt_splits[line[1]]['cS'] = float(line[8]);
-                gt_splits[line[1]]['cN']  = float(line[9]);
-                gt_splits[line[1]]['cA']  = float(line[10]);
-                gt_splits[line[1]]['mS']  = float(line[11]);
-                gt_splits[line[1]]['mN']  = float(line[12]);
-                gt_splits[line[1]]['mA']  = float(line[13]);
-
-            else:
+            if model == 'slac':
                 gt_splits[line[1]]['ES'] = float(line[4]);
                 gt_splits[line[1]]['EN'] = float(line[5]);
                 gt_splits[line[1]]['S'] = float(line[6]);
                 gt_splits[line[1]]['N'] = float(line[7]);
+
+            elif model == 'absrel':
+                gt_splits[line[1]]['pval'] = float(line[5]);
+
+            elif model == 'ancrecon':
+                sub_index = 5
+                for sub_label in sum_headers:
+                    gt_splits[line[1]][sub_label] = float(line[sub_index]);
+                    sub_index += 1;
             # Get the rest of the information for the current branch depending on the type of run
         ## End current file loop
 
@@ -359,6 +372,8 @@ def branchSumNEW(branch_sum_item):
             # print(max_split2);
             # print(max_branch);
             
+            clade_found = False;
+
             if max_branch in gt_done:
                 #print("descendant counted");
                 cur_dict[node_str]['num.genes.descendant.counted'] += 1;
@@ -380,26 +395,47 @@ def branchSumNEW(branch_sum_item):
             elif cur_dict[node_str]["clade"] == max_split1:
                 #print("full");
                 cur_dict[node_str]['num.genes.full'] += 1;
-                for h in sum_headers:
-                    cur_dict[node_str][h] += gt_splits[max_branch][h];
+                if model in ['slac', 'ancrecon']:
+                    for h in sum_headers:
+                        cur_dict[node_str][h] += gt_splits[max_branch][h];
+                elif model == 'absrel':
+                    if gt_splits[line[1]]['pval'] < corrected_alpha:
+                        cur_dict[node_str]['num.ps.genes'] += 1;
+                        cur_dict[node_str]['ps.gene.list'].append(f);
                 gt_done.append(max_branch);
+                clade_found = "full";
             # If the maximal subset of the current branch is exactly equal to the current branch, increment sums for each new column.
 
             else:
                 #print("partial");
                 cur_dict[node_str]['num.genes.partial'] += 1;
-                for h in sum_headers:
-                    cur_dict[node_str][h] += gt_splits[max_branch][h];
-                gt_done.append(max_branch);  
+                if model in ['slac', 'ancrecon']:
+                    for h in sum_headers:
+                        cur_dict[node_str][h] += gt_splits[max_branch][h];
+                elif model == 'absrel':
+                    if gt_splits[line[1]]['pval'] < corrected_alpha:
+                        cur_dict[node_str]['num.ps.genes'] += 1;
+                        cur_dict[node_str]['ps.gene.list'].append(f);
+                gt_done.append(max_branch);
+                clade_found = "partial";
             # If there are no species from the current branch in the second split (not the maximal subset), then this 
             # is a case of missing data and we can still count the branch as existing in this gene tree. Increment
             # the sums for each new column.
+
+            if clade_found:
+                cur_clade = ";".join(sorted(list(cur_dict[node_str]["clade"]), key=str.casefold));
+                num_clade_spec = str(len(cur_dict[node_str]["clade"]));
+
+                found_clade = ";".join(sorted(list(max_split1), key=str.casefold));
+                num_found_spec = str(len(max_split1));
+
+                branch_outlines.append([f, node_str, cur_clade, num_clade_spec, clade_found, found_clade, num_found_spec]);
         ## End species tree node loop
     ## End files loop
 
     #core.PWS("# " + core.getDateTime() + " Finishing branch " + cur_branch);
     #print(cur_branch_dict)
 
-    return cur_dict;
+    return cur_dict, branch_outlines;
 
 #############################################################################
