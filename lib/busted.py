@@ -8,40 +8,56 @@ from collections import defaultdict
 
 ############################################################
 
-def generate(indir, tree_input, gt_opt, aln_id_delim, hyphy_path, outdir, logdir, outfile):
+def generate(indir, tree_input, gt_opt, gt_extension, aln_id_delim, hyphy_path, outdir, logdir, outfile):
     if aln_id_delim:
         aligns = { os.path.splitext(f)[0] : { "aln-file" : os.path.join(indir, f), "id" : f.split(aln_id_delim)[0], "tree" : False } for f in os.listdir(indir) if f.endswith(".fa") };
     else:
         aligns = { os.path.splitext(f)[0] : { "aln-file" : os.path.join(indir, f), "id" : "NA", "tree" : False } for f in os.listdir(indir) if f.endswith(".fa") };
     # Read and sort the alignment file names
 
+    i = 0;
+    tree_skipped, stop_skipped = 0, 0;
     for aln in aligns:
+
+        i += 1;
+        print(str(i) + "\t" + aln);
+
         if gt_opt:
             if aln_id_delim:
                 tree_dir = os.path.join(tree_input, aln);
                 if os.path.isdir(tree_dir):
                     tree_dir_files = os.listdir(tree_dir);
-                    tree_file = "".join([ f for f in tree_dir_files if re.findall(aligns[aln]['id'] + '(.*).treefile', f) != [] and "rooted" not in f ]);
+                    tree_files = [ f for f in tree_dir_files if re.findall(aligns[aln]['id'] + '(.*)' + gt_extension, f) != [] and "rooted" not in f ];
+                    if len(tree_files) != 1:
+                        print(tree_files)
+                        outfile.write(" # Multiple trees found. Skipping: " + aln + "\n");
+                        tree_skipped += 1;
+                        continue;
+                    tree_file = "".join(tree_files);
+                    if not tree_file:
+                        continue;
                     tree_file = os.path.join(tree_dir, tree_file);
                 else:
                     tree_file = False;
+            # If we need to split the input alignment directory to get the tree file name
             else:
-                tree_file = os.path.join(tree_input, aln, aln + ".treefile");
+                tree_file = os.path.join(tree_input, aln, aln + gt_extension);
+            # Get the tree file name
+
+            if os.path.isfile(tree_file):
+                aligns[aln]['tree'] = tree_file;
+            # Assign the current tree file to the alignment
+            if not aligns[aln]['tree']:
+                print(aligns[aln]['tree'])
+                outfile.write(" # Tree file not found. Skipping: " + aln + "\n");
+                tree_skipped += 1;
+                continue;
+            # Check the tree file.
+
         else:
-            tree_file = tree_input;
-
-        if os.path.isfile(tree_file):
-            aligns[aln]['tree'] = tree_file;
-        # Read the tree and remove any bootstrap node labels.1
-    # Read the appropriate tree depending on the -tree and -genetree options.
-
-    tree_skipped, stop_skipped = 0, 0;
-    for aln in aligns:
-        if not aligns[aln]['tree']:
-            outfile.write(" # Tree file not found. Skipping: " + aln + "\n");
-            tree_skipped += 1;
-            continue;
-        # Check the tree file.          
+            aligns[aln]['tree'] = tree_input;
+        # If a single tree is input, we need to set the tree and targets to whatever was determined above in the
+        # single tree block.
 
         seq_dict = hpseq.fastaGetDict(aligns[aln]['aln-file']);
         prem_stop_flag = False
@@ -80,9 +96,9 @@ def generate(indir, tree_input, gt_opt, aln_id_delim, hyphy_path, outdir, logdir
 def parse(indir, features, outfile, pad):
 
     if features:
-        headers = ["file","id","chr","start","end","lrt","pval"];
+        headers = ["file","id","chr","start","end","lrt","pval","unconstrained omega 0", "proportion 0","unconstrained omega 1", "proportion 1","unconstrained omega 2", "proportion 2"];
     else:
-        headers = ["file","lrt","pval"];
+        headers = ["file","lrt","pval","unconstrained omega 0", "proportion 0","unconstrained omega 1", "proportion 1","unconstrained omega 2", "proportion 2"];
     outfile.write(",".join(headers) + "\n");
     # Write the output headers 
 
@@ -132,14 +148,25 @@ def parse(indir, features, outfile, pad):
 
         if features:
             gene_info = { 'id' : fid, 'chr' : cur_feature['chrome'], 'start' : cur_feature['start'], 'end' : cur_feature['end'],
-                "lrt" : "NA", "pval" : "NA" };
+                "lrt" : "NA", "pval" : "NA", 
+                "unconstrained omega 0" : "NA", "proportion 0" : "NA", 
+                "unconstrained omega 1" : "NA", "proportion 1" : "NA", 
+                "unconstrained omega 2" : "NA", "proportion 2" : "NA" };
         else:
-            gene_info = { "lrt" : "NA", "pval" : "NA" };   
+            gene_info = { "lrt" : "NA", "pval" : "NA",
+                "unconstrained omega 0" : "NA", "proportion 0" : "NA", 
+                "unconstrained omega 1" : "NA", "proportion 1" : "NA", 
+                "unconstrained omega 2" : "NA", "proportion 2" : "NA" };   
         # Initialize the output dictionary for the current branch.
 
-        #gene_info["dn/ds"] = str(cur_data["fits"]["Standard MG94"]["Rate Distributions"]["non-synonymous/synonymous rate ratio"]);
         gene_info["lrt"] = str(cur_data["test results"]["LRT"]);
         gene_info["pval"] = str(cur_data["test results"]["p-value"]);
+        gene_info["unconstrained omega 0"] = str(cur_data["fits"]["Unconstrained model"]["Rate Distributions"]["Test"]["0"]["omega"]);
+        gene_info["proportion 0"] = str(cur_data["fits"]["Unconstrained model"]["Rate Distributions"]["Test"]["0"]["proportion"]);
+        gene_info["unconstrained omega 1"] = str(cur_data["fits"]["Unconstrained model"]["Rate Distributions"]["Test"]["1"]["omega"]);
+        gene_info["proportion 1"] = str(cur_data["fits"]["Unconstrained model"]["Rate Distributions"]["Test"]["1"]["proportion"]);
+        gene_info["unconstrained omega 2"] = str(cur_data["fits"]["Unconstrained model"]["Rate Distributions"]["Test"]["2"]["omega"]);
+        gene_info["proportion 2"] = str(cur_data["fits"]["Unconstrained model"]["Rate Distributions"]["Test"]["2"]["proportion"]);
         # Retrieve the rate estimates from the json data.
 
         gene_outline = [f] + [ gene_info[h] for h in headers if h not in ["file"] ];
@@ -148,3 +175,5 @@ def parse(indir, features, outfile, pad):
 
     hpcore.PWS("# ----------------", outfile);
     #hpcore.PWS(hpcore.spacedOut("# Number unfinished:", pad) + str(num_unfinished), outfile);
+
+############################################################

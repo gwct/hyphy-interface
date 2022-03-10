@@ -8,40 +8,56 @@ from collections import defaultdict
 
 ############################################################
 
-def generate(indir, tree_input, gt_opt, aln_id_delim, hyphy_path, outdir, logdir, outfile):
+def generate(indir, tree_input, gt_opt, gt_extension, aln_id_delim, hyphy_path, outdir, logdir, outfile):
     if aln_id_delim:
         aligns = { os.path.splitext(f)[0] : { "aln-file" : os.path.join(indir, f), "id" : f.split(aln_id_delim)[0], "tree" : False } for f in os.listdir(indir) if f.endswith(".fa") };
     else:
         aligns = { os.path.splitext(f)[0] : { "aln-file" : os.path.join(indir, f), "id" : "NA", "tree" : False } for f in os.listdir(indir) if f.endswith(".fa") };
     # Read and sort the alignment file names
 
+    i = 0;
+    tree_skipped, stop_skipped = 0, 0;
     for aln in aligns:
+
+        i += 1;
+        print(str(i) + "\t" + aln);
+
         if gt_opt:
             if aln_id_delim:
                 tree_dir = os.path.join(tree_input, aln);
                 if os.path.isdir(tree_dir):
                     tree_dir_files = os.listdir(tree_dir);
-                    tree_file = "".join([ f for f in tree_dir_files if re.findall(aligns[aln]['id'] + '(.*).treefile', f) != [] and "rooted" not in f ]);
+                    tree_files = [ f for f in tree_dir_files if re.findall(aligns[aln]['id'] + '(.*)' + gt_extension, f) != [] and "rooted" not in f ];
+                    if len(tree_files) != 1:
+                        print(tree_files)
+                        outfile.write(" # Multiple trees found. Skipping: " + aln + "\n");
+                        tree_skipped += 1;
+                        continue;
+                    tree_file = "".join(tree_files);
+                    if not tree_file:
+                        continue;
                     tree_file = os.path.join(tree_dir, tree_file);
                 else:
                     tree_file = False;
+            # If we need to split the input alignment directory to get the tree file name
             else:
-                tree_file = os.path.join(tree_input, aln, aln + ".treefile");
+                tree_file = os.path.join(tree_input, aln, aln + gt_extension);
+            # Get the tree file name
+
+            if os.path.isfile(tree_file):
+                aligns[aln]['tree'] = tree_file;
+            # Assign the current tree file to the alignment
+            if not aligns[aln]['tree']:
+                print(aligns[aln]['tree'])
+                outfile.write(" # Tree file not found. Skipping: " + aln + "\n");
+                tree_skipped += 1;
+                continue;
+            # Check the tree file.
+
         else:
-            tree_file = tree_input;
-
-        if os.path.isfile(tree_file):
-            aligns[aln]['tree'] = tree_file;
-        # Read the tree and remove any bootstrap node labels.1
-    # Read the appropriate tree depending on the -tree and -genetree options.
-
-    tree_skipped, stop_skipped = 0, 0;
-    for aln in aligns:
-        if not aligns[aln]['tree']:
-            outfile.write(" # Tree file not found. Skipping: " + aln + "\n");
-            tree_skipped += 1;
-            continue;
-        # Check the tree file.          
+            aligns[aln]['tree'] = tree_input;
+        # If a single tree is input, we need to set the tree and targets to whatever was determined above in the
+        # single tree block.        
 
         seq_dict = hpseq.fastaGetDict(aligns[aln]['aln-file']);
         prem_stop_flag = False
@@ -79,21 +95,64 @@ def generate(indir, tree_input, gt_opt, aln_id_delim, hyphy_path, outdir, logdir
 
 def parse(indir, features, outfile, pad):
 
+    outdir = os.path.join(indir, "csv");
+    if not os.path.isdir(outdir):
+        os.system("mkdir " + outdir);
+    # Make the csv directory if it doesn't exist
+    ##########################
+
     if features:
-        headers = ["file","id","chr","start","end","dn/ds","lrt","pval"];
+        summary_headers = ["file","id","chr","start","end","num.sites","num.sites.alpha.ne.beta","num.sites.ps"];
     else:
-        headers = ["file","branch","dn/ds","lrt","pval"];
-    outfile.write(",".join(headers) + "\n");
+        summary_headers = ["file","num.sites","num.sites.alpha.ne.beta","num.sites.ps"];
+    
+    
     # Write the output headers 
+    ##########################
 
     hyphy_files = os.listdir(indir);
     num_files = len(hyphy_files);
     num_files_str = str(num_files);
     num_files_len = len(num_files_str);
+
     # Read align file names from input directory
+    ##########################
 
     num_unfinished = 0;
     # A count of the number of unfinished hyphy runs as determined by empty output files
+
+    init_alpha = 0.01;
+    # The initial significance level
+
+    total_sites_tested = 0;
+
+    print("Counting number of tests...");
+
+    for f in os.listdir(indir):
+        cur_json_file = os.path.join(indir, f);
+        if not os.path.isfile(cur_json_file) or not cur_json_file.endswith(".json"):
+            continue;
+        if os.stat(cur_json_file).st_size == 0:
+            continue;
+        # Get the current json file.   
+
+        with open(cur_json_file) as json_data:
+            cur_data = json.load(json_data);
+        # Read the Hyphy json file.
+
+        for site in cur_data["MLE"]["content"]["0"]:
+            if site[3] != 0:
+                total_sites_tested += 1;
+
+    adj_alpha = init_alpha / total_sites_tested;
+
+    hpcore.PWS("# Initial alpha      : " + str(init_alpha), outfile);
+    hpcore.PWS("# Total sites tested : " + str(total_sites_tested), outfile);
+    hpcore.PWS("# Adjusted alpha     : " + str(adj_alpha), outfile);
+
+    outfile.write(",".join(summary_headers) + "\n");
+
+    ##########################
 
     counter = 0;
     for f in os.listdir(indir):
@@ -105,13 +164,17 @@ def parse(indir, features, outfile, pad):
         counter += 1;
         # Track progress
 
+        ##########################
+
         cur_json_file = os.path.join(indir, f);
         if not os.path.isfile(cur_json_file) or not cur_json_file.endswith(".json"):
             continue;
         if os.stat(cur_json_file).st_size == 0:
             num_unfinished +=1 ;
             continue;
-        # Get the current output file.
+        # Get the current json file.
+
+        ##########################
 
         #print(f);
         if features:
@@ -124,6 +187,8 @@ def parse(indir, features, outfile, pad):
             cur_feature = features[fid];
             # Look up transcript/gene info for current gene to save in output, if metadata is provided.
 
+        ##########################
+
         with open(cur_json_file) as json_data:
             cur_data = json.load(json_data);
         # Read the Hyphy json file.
@@ -131,20 +196,34 @@ def parse(indir, features, outfile, pad):
         #print(cur_data)
 
         if features:
-            gene_info = { 'id' : fid, 'chr' : cur_feature['chrome'], 'start' : cur_feature['start'], 'end' : cur_feature['end'],
-                "dn/ds" : "NA", "lrt" : "NA", "pval" : "NA" };
+            summary_info = { 'id' : fid, 'chr' : cur_feature['chrome'], 'start' : cur_feature['start'], 'end' : cur_feature['end'],
+                "num.sites" : "NA", "num.sites.alpha.ne.beta" : "NA", "num.sites.ps" : "NA" };
         else:
-            gene_info = { "dn/ds" : "NA", "lrt" : "NA", "pval" : "NA" };   
+            summary_info = { "num.sites" : "NA", "num.sites.alpha.ne.beta" : "NA", "num.sites.ps" : "NA" };   
         # Initialize the output dictionary for the current branch.
 
-        gene_info["dn/ds"] = str(cur_data["fits"]["Standard MG94"]["Rate Distributions"]["non-synonymous/synonymous rate ratio"]);
-        gene_info["lrt"] = str(cur_data["test results"]["non-synonymous/synonymous rate ratio"]["LRT"]);
-        gene_info["pval"] = str(cur_data["test results"]["non-synonymous/synonymous rate ratio"]["p-value"]);
-        # Retrieve the rate estimates from the json data.
+        ##########################
 
-        gene_outline = [f] + [ gene_info[h] for h in headers if h not in ["file"] ];
-        outfile.write(",".join(gene_outline) + "\n");
+        num_sites, num_sites_tested, num_sites_ps = 0, 0, 0;
+
+        for site in cur_data["MLE"]["content"]["0"]:
+            num_sites += 1;
+            if site[3] != 0:
+                num_sites_tested += 1;
+                if float(site[4]) < adj_alpha:
+                    num_sites_ps += 1;
+
+        summary_info['num.sites'] = str(num_sites);
+        summary_info['num.sites.alpha.ne.beta'] = str(num_sites_tested);
+        summary_info['num.sites.ps'] = str(num_sites_ps);
+
+        ##########################
+
+        summary_outline = [f] + [ summary_info[h] for h in summary_headers if h not in ["file"] ];
+        outfile.write(",".join(summary_outline) + "\n");
         # Ouput rate estimates for both the gene.
+
+        ##########################
 
     hpcore.PWS("# ----------------", outfile);
     #hpcore.PWS(hpcore.spacedOut("# Number unfinished:", pad) + str(num_unfinished), outfile);

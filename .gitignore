@@ -5,3 +5,4 @@ lib/*.pyc
 branch-rates/lib/__pycache__/
 branch-rates/lib/*.pyc
 *.code-workspace
+*.swp

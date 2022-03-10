@@ -21,7 +21,9 @@ parser = argparse.ArgumentParser(description="Parse Hyphy json output for pairwi
 parser.add_argument("-i", dest="input", help="Directory containing hyphy json output files from AncestralReconstruction.bf.", default=False);
 parser.add_argument("-b", dest="branches", help="The branch-counts.csv file from a branch_rates.py --rooted run.", default=False);
 parser.add_argument("-t", dest="tree", help="The species tree file used to run HyPhy", default=False);
-parser.add_argument("-o", dest="output", help="An output .csv file.", default=False);
+parser.add_argument("-o", dest="output", help="An output directory.", default=False);
+parser.add_argument("--codons", dest="count_codons", help="Whether or not to count substitutions by codon per branch.", action="store_true", default=False);
+parser.add_argument("--genes", dest="count_genes", help="Whether or not to count convergent substitutions by gene.", action="store_true", default=False);
 parser.add_argument("--overwrite", dest="overwrite", help="If the output file already exists and you wish to overwrite it, set this option.", action="store_true", default=False);
 # IO options
 args = parser.parse_args();
@@ -36,21 +38,33 @@ if not args.tree or not os.path.isfile(args.tree):
     sys.exit(" * Error 3: Please provide a rooted species tree in Newick format (-t).");
 
 if not args.output:
-    sys.exit(" * Error 4: Please provide the name of an output file (-o).")
-
-if os.path.isfile(args.output) and not args.overwrite:
-    sys.exit( " * Error 5: Output file (-o) already exists! Explicity specify --overwrite to overwrite it.");
+    sys.exit(" * Error 4: Please provide the name of an output directory (-o).")
+elif os.path.isdir(args.output) and not args.overwrite:
+    sys.exit( " * Error 5: Output directory (-o) already exists! Explicity specify --overwrite to overwrite it.");
+else:
+    os.system("mkdir " + args.output);
+    outfilename = os.path.join(args.output, "substitutions-by-branch-pairs.csv");
+    codon_branches_file = os.path.join(args.output, "codons-by-branch.csv");
+    codon_pairs_file = os.path.join(args.output, "codons-by-pairs.csv");
+    gene_count_file = os.path.join(args.output, "substitution-pairs-by-gene.csv");
 
 pad = 25;
 debug = False;
 
-with open(args.output, "w") as outfile:
+with open(outfilename, "w") as outfile, open(gene_count_file, "w") as genefile:
     hpcore.runTime("# Pairwise convergent substitution counting", outfile);
     hpcore.PWS("# IO OPTIONS", outfile);
     hpcore.PWS(hpcore.spacedOut("# Input directory:", pad) + args.input, outfile);
     hpcore.PWS(hpcore.spacedOut("# Branch counts file:", pad) + args.branches, outfile);
     hpcore.PWS(hpcore.spacedOut("# Tree file:", pad) + args.tree, outfile);
-    hpcore.PWS(hpcore.spacedOut("# Output file:", pad) + args.output, outfile);
+    hpcore.PWS(hpcore.spacedOut("# Output directory:", pad) + args.output, outfile);
+    hpcore.PWS(hpcore.spacedOut("# Convergent substitutions:", pad) + outfilename, outfile);
+    if args.count_codons:
+        hpcore.PWS(hpcore.spacedOut("# Substitutions by branch:", pad) + codon_branches_file, outfile);
+        #hpcore.PWS(hpcore.spacedOut("# Substitutions by pair:", pad) + codon_pairs_file, outfile);
+    if args.count_genes:
+        hpcore.PWS(hpcore.spacedOut("# Substitutions by gene:", pad) + gene_count_file, outfile);
+        gene_headers = ["gene", "clade1", "clade2", "sub.type"];
     if args.overwrite:
         hpcore.PWS(hpcore.spacedOut("# --overwrite set:", pad) + "Overwriting previous output file.", outfile);
     hpcore.PWS("# ----------------", outfile);
@@ -94,7 +108,10 @@ with open(args.output, "w") as outfile:
     # Generate the headers for each substitution label   
 
     headers += sum_headers;
-    headers += ["clade1", "clade2"];
+    headers += ["count", "clade1", "clade2"];
+
+    gene_headers = ["pid", "node1", "node2", "codon.type", "codon.class", "aa.class"];
+    genefile.write(",".join(gene_headers) + "\n");
 
     ####################
 
@@ -103,50 +120,58 @@ with open(args.output, "w") as outfile:
     # Status update
 
     pairs_dict = {};
-
-    ancs = {};
-    # Dictionary to keep track of ancestors to skip comparisons
+    pairs_codon_dict = {};
+    branch_codon_dict = {};
+    clade_to_node = {};
 
     for n1 in tinfo:
         if n1 == root:
             continue;
 
+        clade1 = sorted(tp.getClade(n1, tinfo), key=str.casefold);
+        clade1_str = ";".join(clade1);
+        # Read the clade for the first branch
+
+        clade_to_node[clade1_str] = n1;
+
+        branch_codon_dict[clade1_str] = defaultdict(int);
+
         for n2 in tinfo:
             if n2 == n1 or n2 == root:
                 continue;
+            # Skip if the nodes are the same or if n2 is the root
 
-            if tinfo[n1][1] == n2 or tinfo[n2][1] == n1:
+            ####
+            full_clade_1 = tp.getCladeNode(n1, tinfo);
+            full_clade_2 = tp.getCladeNode(n2, tinfo);
+            if n1 in full_clade_2 or n2 in full_clade_1:
                 continue;
+            # Skip if either branch is within the clade that descends from the other
+            ####
+
+            ####
+            # if tinfo[n1][1] == n2 or tinfo[n2][1] == n1:
+            #    continue;
             # Skip if one of the branches is a direct descendant of the other
-
-            clade1 = sorted(tp.getClade(n1, tinfo), key=str.casefold);
+            ####
+            
             clade2 = sorted(tp.getClade(n2, tinfo), key=str.casefold);
+            # Read the clade for the second branch
 
-            # if set(clade1) == set(['Arvicanthus_niloticus_MNHN1999201','Arvicanthus_neumanni_FMNH158037','Lemniscomys_striatus_TCD4711']):
-            #     if set(clade2) == set(['Papagomys_armandvillei_WAMM32592']):
-            #         print(clade1);
-            #         print(clade2);
-            #         print(tuple(sorted([";".join(clade1), ";".join(clade2)], key=str.casefold)));
-            #         sys.exit();
-            # if set(clade2) == set(['Arvicanthus_niloticus_MNHN1999201','Arvicanthus_neumanni_FMNH158037','Lemniscomys_striatus_TCD4711']):
-            #     if set(clade1) == set(['Papagomys_armandvillei_WAMM32592']):
-            #         print(clade2);
-            #         print(clade1);
-            #         print(tuple(sorted([";".join(clade1), ";".join(clade2)], key=str.casefold)));
-            #         sys.exit();
             pair = sorted([";".join(clade1), ";".join(clade2)], key=str.casefold);
-
-            pairs_dict[tuple(pair)] = { "node1" : n1, "node2" : n2 };
+            pair = tuple(pair);
+            pairs_dict[pair] = { "node1" : n1, "node2" : n2 };
+            # Join the two clades in tuple and initialize them in the pairs dict
 
             for h in sum_headers:
-                pairs_dict[tuple(pair)][h] = 0.0;
+                pairs_dict[pair][h] = 0.0;
+            pairs_dict[pair]["count"] = 0;
             # Generate the labels for each substitution type for each pair of branches   
 
     step_start_time = hpcore.report_step(step, step_start_time, "SUCCESS: " + str(len(pairs_dict)) + " pairs", prog_start_time);
     # Status update
 
     # print(pairs_dict[('Arvicanthus_niloticus_MNHN1999201;Arvicanthus_neumanni_FMNH158037;Lemniscomys_striatus_TCD4711', 'Papagomys_armandvillei_WAMM32592')]);
-    # sys.exit();
 
     ####################            
 
@@ -160,14 +185,6 @@ with open(args.output, "w") as outfile:
         f = line[0].replace(".csv", ".anc");
         branches[f][line[5]] = line[2];#     .append({ line[5], line[2] ]);
     # Gene : { gene tree clade : species tree clade } 
-
-    # for gene in branches:
-    #     print(gene);
-    #     print(branches[gene]);
-    #     sys.exit();
-
-    # print(branches);
-    # sys.exit();
 
     step_start_time = hpcore.report_step(step, step_start_time, "SUCCESS: " + str(len(branches)) + " genes read", prog_start_time);
     # Status update
@@ -193,6 +210,8 @@ with open(args.output, "w") as outfile:
     #step_start_time = hpcore.report_step(step, False, "Processed 0 / " + num_files_str + " loci...", prog_start_time, full_update=True);
     # Status update
 
+    all_subs = [];
+
     num_unfinished = 0;
     # A count of the number of unfinished hyphy runs as determined by empty output files
 
@@ -209,6 +228,12 @@ with open(args.output, "w") as outfile:
             # Status update
         counter += 1;
         # Track progress
+
+        pid = f.split("-")[0];
+
+        # gene_pairs_dict = { pair : {} for pair in pairs_dict };
+        # for pair in gene_pairs_dict:
+        #     gene_pairs_dict[pair] = { h : 0.0 for h in sum_headers };
 
         ####################
 
@@ -246,14 +271,17 @@ with open(args.output, "w") as outfile:
                 node_label = n;
             else:
                 node_label = tinfo[n][3];
-            # For the splits dict, replace the node labels with thos provided by HyPhy
+            # For the splits dict, replace the node labels with thosd=e provided by HyPhy
 
             clade = sorted(tp.getClade(n, tinfo), key=str.casefold);
+            clade = ";".join(clade);
 
-            cur_clades[node_label] = ";".join(clade);
+            cur_clades[node_label] = clade;
         ## End clade loop
 
         ####################
+
+        pairs_found = [];
 
         for site in cur_data['substitution_map']:
         # Loop over every site (codon) with substitutions in at least one branch
@@ -300,7 +328,19 @@ with open(args.output, "w") as outfile:
                         #print(node_label);
                         #print(cur_clades[branch]);
                         if cur_clades[branch] in branches[f]:
+                            sub_key = anc_codon + ":" + der_codon;
+                            # Get the substitution as a string
+
+                            if sub_key not in all_subs:
+                                all_subs.append(sub_key);
+                            # Add the substitution to the list of all substitutions if it isn't there already
+
+                            cur_st_clade = branches[f][cur_clades[branch]];
+                            branch_codon_dict[cur_st_clade][sub_key] += 1;
+                            # Increment the count for this substitution on this branch
+
                             cur_subs[branch] = { 'anc-codon' : anc_codon, 'anc-aa' : anc_aa, 'der-codon' : der_codon, 'der-aa' : der_aa, 'sub-type' : sub_type, 'st-clade' : branches[f][cur_clades[branch]] };
+                            # Save the info for this substitution on this branch for pairwise comparisons below
                         # Only get subs from branches that map to the species tree as read in from branch-counts.csv
                     ## End branch loop
                 ## End derived state loop
@@ -359,6 +399,9 @@ with open(args.output, "w") as outfile:
                                 print("SKIPPING PAIR");
                                 print("------");
                             continue;
+                        elif cur_pair not in pairs_found:
+                            pairs_dict[cur_pair]["count"] += 1;
+                            pairs_found.append(cur_pair);
 
                         ####################
 
@@ -428,7 +471,13 @@ with open(args.output, "w") as outfile:
                             print("final sub type", final_sub_label);
 
                         pairs_dict[cur_pair][final_sub_label] += 1;
+                        #pairs_codon_dict[cur_pair][]
                         # Add to the count of substitutions for the current pair of branches for the current substitution type
+
+                        #gene_pairs_dict[cur_pair][final_sub_label] += 1;
+
+                        gene_outline = [pid, clade_to_node[st_clade1], clade_to_node[st_clade2], codon_sub_type, codon_sub_class, aa_sub_class];
+                        genefile.write(",".join(gene_outline) + "\n");
 
                         if debug and "s-s-par-none" in final_sub_label:
                             print("updated cur_pairs_dict", pairs_dict[cur_pair]);
@@ -441,6 +490,14 @@ with open(args.output, "w") as outfile:
             ## End sub counting block
             #print("-----------------");
         ## End site loop
+
+        # for pair in gene_pairs_dict:
+        #     gene_outline = [ pid, clade_to_node[pair[0]], clade_to_node[pair[1]] ];
+        #     for h in sum_headers:
+        #         gene_outline.append(str(gene_pairs_dict[pair][h]));
+        #     genefile.write(",".join(gene_outline) + "\n")
+
+
     ## End file loop        
 
     step_start_time = hpcore.report_step(step, step_start_time, "SUCCESS", prog_start_time, full_update=True);
@@ -448,7 +505,7 @@ with open(args.output, "w") as outfile:
 
     ####################
 
-    step = "Counting HyPhy files";
+    step = "Writing main output";
     step_start_time = hpcore.report_step(step, False, "In progress...", prog_start_time);
     # Status update
 
@@ -467,5 +524,38 @@ with open(args.output, "w") as outfile:
 
     step_start_time = hpcore.report_step(step, step_start_time, "SUCCESS", prog_start_time);
     # Status update
+
+    ####################
+
+    if args.count_codons:
+        step = "Writing codon counts output";
+        step_start_time = hpcore.report_step(step, False, "In progress...", prog_start_time);
+        # Status update
+
+        with open(codon_branches_file, "w") as branchout:
+            branch_headers = ["clade"] + all_subs;
+            branchout.write(",".join(branch_headers) + "\n");
+            # The headers for the branch file are the clade and ALL substitution types found
+
+            for branch in branch_codon_dict:
+            # Go through every branch
+                outline = [branch];
+                for sub in all_subs:
+                # And every sub found in every branch
+                    if sub in branch_codon_dict[branch]:
+                        outline.append(str(branch_codon_dict[branch][sub]));
+                    # If that sub was found on this branch, add its count to the output line
+                    else:
+                        outline.append("0");
+                    # Otherwise add a count of 0
+                ## End sub loop
+
+                branchout.write(",".join(outline) + "\n");
+                # Write the output for the current branch to the fily
+            ## End branch loop
+        ## Close branch count output file  
+
+        step_start_time = hpcore.report_step(step, step_start_time, "SUCCESS", prog_start_time);
+        # Status update
 
     ####################

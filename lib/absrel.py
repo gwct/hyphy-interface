@@ -315,12 +315,24 @@ def parseOLD(indir, features, outfile, pad):
 def parse(indir, features, outfile, pad):
 
     alpha = 0.01;
+    hpcore.PWS(hpcore.spacedOut("# Original alpha significance threshold", pad) + str(alpha), outfile);
     print("alpha: ", alpha);
 
     out_mode = "splits";
     print("out mode: " + out_mode);
     # clades or splits
 
+    hyphy_files = os.listdir(indir);
+    num_files = len(hyphy_files);
+    num_files_str = str(num_files);
+    num_files_len = len(num_files_str);
+    hpcore.PWS(hpcore.spacedOut("# Number of files (tests performed)", pad) + str(num_files), outfile);
+
+    adj_alpha = alpha / num_files;
+    hpcore.PWS(hpcore.spacedOut("# Bonferronie adjusted alpha significance level", pad) + str(adj_alpha), outfile);
+    hpcore.PWS("# ----------------", outfile);
+
+    # Read align file names from input directory
     ##########################
 
     outdir = os.path.join(indir, "csv");
@@ -346,20 +358,6 @@ def parse(indir, features, outfile, pad):
     outfile.write(",".join(gene_headers) + "\n");
 
     # Write the output headers 
-    ##########################
-
-
-    hyphy_files = os.listdir(indir);
-    num_files = len(hyphy_files);
-    num_files_str = str(num_files);
-    num_files_len = len(num_files_str);
-
-    print("num files: ", num_files);
-
-    adj_alpha = alpha / num_files;
-    print("adjusted alpha: ", adj_alpha)
-
-    # Read align file names from input directory
     ##########################
 
     num_unfinished = 0;
@@ -429,6 +427,11 @@ def parse(indir, features, outfile, pad):
         # The headers for the current gene in the main output file
 
         gene_info["file"] = f;
+        if features:
+            gene_info["id"] = fid;
+            gene_info["chr"] = cur_feature["chrome"];
+            gene_info["start"] = cur_feature["start"];
+            gene_info["end"] = cur_feature["end"];
         gene_info["baseline mean omega"] = cur_data["fits"]["Baseline MG94xREV"]["Rate Distributions"]["Per-branch omega"]["Mean"];
         gene_info["baseline median omega"] = cur_data["fits"]["Baseline MG94xREV"]["Rate Distributions"]["Per-branch omega"]["Median"];
         # Lookup the gene info in the json

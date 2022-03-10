@@ -30,7 +30,7 @@ if __name__ == '__main__':
     print("\n" + " ".join(sys.argv) + "\n");
 
     if any(v in sys.argv for v in ["--version", "-version", "--v", "-v"]):
-        print("# branch_avgs version " + globs['version'] + " released on " + globs['releasedate'])
+        print("# branch_rates version " + globs['version'] + " released on " + globs['releasedate'])
         sys.exit(0);
     # The version option to simply print the version and exit.
 

@@ -215,10 +215,10 @@ with open(output_file, "w") as outfile:
 
     if args.model == "fel":
         import lib.fel as fel;
-        fel.generate(args.input, tree_input, args.genetrees, args.sep, args.path, args.output, logdir, outfile);
+        fel.generate(args.input, tree_input, args.genetrees, tree_ext, args.sep, args.path, args.output, logdir, outfile);
     if args.model == "busted":
         import lib.busted as busted;
-        busted.generate(args.input, tree_input, args.genetrees, args.sep, args.path, args.output, logdir, outfile);
+        busted.generate(args.input, tree_input, args.genetrees, tree_ext, args.sep, args.path, args.output, logdir, outfile);
     if args.model == "fubar":
         import lib.fubar as fubar;
         fubar.generate(args.input, tree_input, args.genetrees, args.sep, args.path, args.output, logdir, outfile);
