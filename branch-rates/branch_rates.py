@@ -30,7 +30,7 @@ if __name__ == '__main__':
     print("\n" + " ".join(sys.argv) + "\n");
 
     if any(v in sys.argv for v in ["--version", "-version", "--v", "-v"]):
-        print("# branch_avgs version " + globs['version'] + " released on " + globs['releasedate'])
+        print("# branch_rates version " + globs['version'] + " released on " + globs['releasedate'])
         sys.exit(0);
     # The version option to simply print the version and exit.
 
@@ -107,12 +107,24 @@ if __name__ == '__main__':
     step_start_time = CORE.report_step(globs, step, False, "In progress...");
     # Status update
 
-    loci_file = os.path.join(globs['outdir'], "counted-loci.txt");
+    loci_file = os.path.join(globs['outdir'], globs['locus-count-file']);
     with open(loci_file, "w") as locifile:
         for f in globs['csv-files']:
             locifile.write(f + "\n");
     step_start_time = CORE.report_step(globs, step, step_start_time, "SUCCESS: counted-loci.txt written");
     # Status update
+
+    ##########################
+
+    if globs['model'] == 'absrel':
+        step = "Adjusting alpha";
+        step_start_time = CORE.report_step(globs, step, False, "In progress...");
+        # Status update   
+
+        globs['alpha'] = globs['alpha'] / len(globs['csv-files']);
+
+        step_start_time = CORE.report_step(globs, step, step_start_time, "SUCCESS: " + str(globs['alpha']));
+        # Status update
 
     ########################## 
 
@@ -140,13 +152,21 @@ if __name__ == '__main__':
     branches = {};
 
     headers = ["node.label", "clade", "node.type", "orig.node.label"];
-    if globs['rooted']:
-        count_headers = ["num.genes.full", "num.genes.partial", "num.genes.descendant.counted", "num.genes.discordant", "num.genes.missing", "cS", "cN", "cA", "mS", "mN", "mA"];
-    else:
+    if globs['model'] == "slac":
         count_headers = ["num.genes.full", "num.genes.partial", "num.genes.descendant.counted", "num.genes.discordant", "num.genes.missing", "ES", "EN", "S", "N"];
         avg_headers = ["avg.ES", "avg.EN", "avg.S", "avg.N", "dS", "dN", "dNdS"];
+    elif globs['model'] == 'absrel':
+        count_headers = ["num.genes.full", "num.genes.partial", "num.genes.descendant.counted", "num.genes.discordant", "num.genes.missing", "num.ps.genes"];
+    elif globs['model'] == "ancrecon":
+        count_headers = ["num.genes.full", "num.genes.partial", "num.genes.descendant.counted", "num.genes.discordant", "num.genes.missing", "total subs", "total mns", "S", "N", "A", "mS", "mN", "mA"];
+
     headers += count_headers;
-    # The headers/keys for each node in the species tree, depending on whether this is from a rooted ancestral sequences run or SLAC
+    if globs['model'] == 'absrel':
+        headers += ["ps.gene.list"];
+    # The headers/keys for each node in the species tree, depending on whether this is from a rooted ancestral sequences run or SLAC or absrel
+
+    # Initialize the headers
+    ##########################
 
     for node in globs['tree-dict']:
     # Setup the dictionary for each node in the species tree
@@ -154,7 +174,7 @@ if __name__ == '__main__':
         branches[node] = {};
         # Add the current node to the tracker dict
 
-        cur_clade = sorted(TREE.getClade(node, globs['tree-dict']));
+        cur_clade = sorted(TREE.getClade(node, globs['tree-dict']), key=str.casefold);
         branches[node]["clade"] = set(cur_clade);
         # Get the clade descending from the current node
 
@@ -165,6 +185,8 @@ if __name__ == '__main__':
 
         for h in count_headers:
             branches[node][h] = 0.0;
+        if globs['model'] == 'absrel':
+            branches[node]["ps.gene.list"] = [];
         # Initialize all the counts for the current node
 
     step_start_time = CORE.report_step(globs, step, step_start_time, "SUCCESS");
@@ -202,18 +224,26 @@ if __name__ == '__main__':
     #     branch_num += 1;
     ## Serial version for debugging
 
-    with mp.Pool(processes=globs['num-procs']) as pool:
+    branch_outfile = os.path.join(globs['outdir'], globs['branch-count-file']);
+    with open(branch_outfile, "w") as branchfile, mp.Pool(processes=globs['num-procs']) as pool:
         chunk_num = 1;
         new_branches = {};
-        for result in pool.imap_unordered(BRANCHES.branchSumNEW, ((chunk, globs['csv-rate-dir'], globs['tree-dict'], globs['rooted']) for chunk in chunks)):
+        for result in pool.imap_unordered(BRANCHES.branchSumNEW, ((chunk, globs['csv-rate-dir'], globs['tree-dict'], globs['model'], globs['alpha']) for chunk in chunks)):
             
             if result == "stop":
                 sys.exit();
 
+            branch_dict, branch_outlines = result;
+
             for node in globs['tree-dict']:
                 for h in count_headers:
-                    branches[node][h] += result[node][h];
+                    branches[node][h] += branch_dict[node][h];
+                if globs['model'] == 'absrel':
+                    branches[node]["ps.gene.list"] += branch_dict[node]["ps.gene.list"];
             # Sum the result
+
+            for outline in branch_outlines:
+                branchfile.write(",".join(outline) + "\n");
 
             cur_chunk_time = CORE.report_step(globs, step, step_start_time, "Processed " + str(chunk_num) + " / " + num_chunks + " chunks...", full_update=True);
             chunk_num += 1;
@@ -229,7 +259,7 @@ if __name__ == '__main__':
     step_start_time = CORE.report_step(globs, step, False, "In progress...");
     # Status update
 
-    if not globs['rooted']:
+    if globs['model'] == 'slac':
         
         headers += avg_headers;
 
@@ -248,7 +278,7 @@ if __name__ == '__main__':
         # Open the output file and write the headers, which now contain the new columns
 
         for node in branches:
-            if not globs['rooted']:
+            if globs['model'] == 'slac':
                 if branches[node]["node.type"] != "ROOT" and (branches[node]['num.genes.full'] + branches[node]['num.genes.partial']) != 0:
                     branches[node]['avg.ES'] = branches[node]['ES']  / (branches[node]['num.genes.full'] + branches[node]['num.genes.partial']);
                     branches[node]['avg.EN'] = branches[node]['EN']  / (branches[node]['num.genes.full'] + branches[node]['num.genes.partial']);
@@ -271,6 +301,9 @@ if __name__ == '__main__':
                     # new_branches[branch]['avg.dN'] = new_branches[branch]['avg.N'] / new_branches[branch]['avg.EN']
                     # new_branches[branch]['avg.dNdS'] = new_branches[branch]['avg.dN'] / new_branches[branch]['avg.dS']
             # After averaging ES, EN, S, and N, use them to calculate dS, dN, and dN/dS across all alignments
+
+            if globs['model'] == 'absrel':
+                branches[node]['ps.gene.list'] = ";".join(branches[node]['ps.gene.list']);
 
             branches[node]["clade"] = ";".join(sorted(list(branches[node]["clade"]), key=str.casefold));
             # Sorts the speceies in the clade, while ignoring the case of the letters.

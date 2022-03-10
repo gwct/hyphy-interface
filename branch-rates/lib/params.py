@@ -49,14 +49,22 @@ def init():
         'output-file' : False,
         # Input options
 
+        'locus-count-file' : "counted-loci.txt",
+        'branch-count-file' : "branch-counts.csv",
+        # Supplemental output files
+
         'orig-tree-string' : False,
         'tree-dict' : False,
         'tree-string' : False,
         'root' : False,
         # Species tree stuff
 
-        'rooted' : False,
-        # A setting for ancestral substitution counting on rooted trees
+        'model' : False,
+        # Which model to count stats for. slac, absrel, or ancrecon
+
+        'alpha' : 0.01,
+        # The uncorrected significance level for the absrel p-values
+        # Will be adjusted based on number of files counted
 
         'csv-files' : [],
         'filter-files' : [],

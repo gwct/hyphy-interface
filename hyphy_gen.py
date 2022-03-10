@@ -215,10 +215,10 @@ with open(output_file, "w") as outfile:
 
     if args.model == "fel":
         import lib.fel as fel;
-        fel.generate(args.input, tree_input, args.genetrees, args.sep, args.path, args.output, logdir, outfile);
+        fel.generate(args.input, tree_input, args.genetrees, tree_ext, args.sep, args.path, args.output, logdir, outfile);
     if args.model == "busted":
         import lib.busted as busted;
-        busted.generate(args.input, tree_input, args.genetrees, args.sep, args.path, args.output, logdir, outfile);
+        busted.generate(args.input, tree_input, args.genetrees, tree_ext, args.sep, args.path, args.output, logdir, outfile);
     if args.model == "fubar":
         import lib.fubar as fubar;
         fubar.generate(args.input, tree_input, args.genetrees, args.sep, args.path, args.output, logdir, outfile);
@@ -231,7 +231,7 @@ with open(output_file, "w") as outfile:
         ancrecon.generate(args.input, model_file, args.path, args.output, logdir, outfile);
     if args.model == "slac":
         import lib.slac as slac;
-        slac.generate(args.input, tree_input, args.genetrees, args.path, args.output, logdir, outfile);
+        slac.generate(args.input, tree_input, args.genetrees, tree_ext, args.path, args.output, logdir, outfile);
     if args.model == "relax":
         import lib.relax as relax;
         relax.generate(args.input, tree_input, tests, refs, args.genetrees, args.path, args.output, logdir, outfile)

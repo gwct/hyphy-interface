@@ -51,16 +51,18 @@ def optParse(globs):
     parser = argparse.ArgumentParser(description="Generates concatenated dS, dN, and dN/dS estimates across all genes for a branch");
     parser.add_argument("-i", dest="tree_file", help="A file with the ROOTED species tree in Newick format.", default=False);
     parser.add_argument("-r", dest="rates_dir", help="The directory of csv files from a hyphy SLAC run.", default=False);
+    parser.add_argument("-m", dest="model", help="The model type to parse. Must be one of: slac, absrel, ancrecon.", default=False);
     parser.add_argument("-f", dest="filter_file", help="The file with the loci to excldue from the analysis.", default=False);
     parser.add_argument("-s", dest="subset_file", help="Subset of genes to include in the analysis.", default=False);
     parser.add_argument("-o", dest="output_dir", help="The name of the directory to output files.", default=False);
     parser.add_argument("--overwrite", dest="overwrite", help="If the output file already exists and you wish to overwrite it, set this option.", action="store_true", default=False);
     # I/O params and options
 
+    parser.add_argument("-a", dest="alpha", help="For -m absrel, the significanve level for p-values. Default: 0.01", default=False);
     parser.add_argument("-n", dest="num_procs", help="The number of processes to use. Default: 1", default=False);
     # User params
 
-    parser.add_argument("--rooted", dest="rooted_flag", help="Set to count convergent substitutions on rooted gene trees.", action="store_true", default=False);
+    #parser.add_argument("--rooted", dest="rooted_flag", help="Set to count convergent substitutions on rooted gene trees.", action="store_true", default=False);
     # User options
 
     parser.add_argument("--info", dest="info_flag", help="Print some meta information about the program and exit. No other options required.", action="store_true", default=False);
@@ -91,9 +93,16 @@ def optParse(globs):
     globs['overwrite'] = args.overwrite;
     # Check run mode options.
 
-    if args.rooted_flag:
-        globs['rooted'] = True;
-    # Check the rooted option
+    if args.model not in ['slac', 'absrel', 'ancrecon']:
+        CORE.errorOut("OP6", "Model (-m) must be one of: slac, absrel, ancrecon", globs);
+    globs['model'] = args.model.lower();
+    # Check the model option
+
+    if globs['model'] == "absrel":
+        if args.alpha:
+            globs['alpha'] = CORE.isPosFloat(args.alpha, maxval=1.0);
+            if not globs['alpha']:
+                CORE.errorOut("OP6", "Alpha (-a) must be a positive decimal between 0 and 1.", globs);
 
     globs = inputPathCheck(args.tree_file, "file", True, "-i", globs, "tree-file");
     # Check the tree file
@@ -177,14 +186,22 @@ def startProg(globs):
     CORE.printWrite(globs['logfilename'], globs['log-v'], "# OPTIONS INFO:");    
     CORE.printWrite(globs['logfilename'], globs['log-v'], CORE.spacedOut("# Option", pad) + CORE.spacedOut("Current setting", opt_pad) + "Current action");      
 
-    if globs['rooted']:
-        rooted_info = "Convergent substitutions will be counted on rooted trees INSTEAD of substitution rates";
-    else:
-        rooted_info = "Substitution rates will be counted on unrooted tres";
-    CORE.printWrite(globs['logfilename'], globs['log-v'], CORE.spacedOut("# --rooted", pad) +
-                CORE.spacedOut(str(globs['rooted']), opt_pad) + 
+    if globs['model'] == 'slac':
+        rooted_info = "Substitution rates will be calculated per branch";
+    if globs['model'] == 'absrel':
+        rooted_info = "Evidence for positive selection will be counted per branch";
+    elif globs['model'] == 'ancrecon':
+        rooted_info = "Multi-nucleotdie substitutions will be counted per branch using ancestral sequence on rooted trees";
+    CORE.printWrite(globs['logfilename'], globs['log-v'], CORE.spacedOut("# -m", pad) +
+                CORE.spacedOut(str(globs['model']), opt_pad) + 
                 rooted_info);        
-    # Reporting the --rooted option
+    # Reporting the -m option
+
+    if globs['model'] == 'absrel':
+        CORE.printWrite(globs['logfilename'], globs['log-v'], CORE.spacedOut("# -a", pad) +
+                    CORE.spacedOut(str(globs['alpha']), opt_pad) + 
+                    rooted_info);        
+    # Reporting the -a option        
 
     if globs['filter-file']:
         CORE.printWrite(globs['logfilename'], globs['log-v'], CORE.spacedOut("# -f", pad) +

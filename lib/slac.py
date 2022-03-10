@@ -8,13 +8,13 @@ from collections import defaultdict
 
 ############################################################
 
-def generate(indir, tree_input, gt_opt, hyphy_path, outdir, logdir, outfile):
+def generate(indir, tree_input, gt_opt, gt_extension, hyphy_path, outdir, logdir, outfile):
     aligns = { os.path.splitext(f)[0] : { "aln-file" : os.path.join(indir, f), "tree" : False } for f in os.listdir(indir) if f.endswith(".fa") };
     # Read and sort the alignment file names
 
     for aln in aligns:
         if gt_opt:
-            tree_file = os.path.join(tree_input, aln, aln + ".treefile");
+            tree_file = os.path.join(tree_input, aln, aln + gt_extension);
         else:
             tree_file = tree_input;
 
@@ -111,6 +111,8 @@ def parse(indir, features, outfile, pad):
         counter += 1;
         # Track progress
 
+        #print(f);
+
         cur_json_file = os.path.join(indir, f);
         if not os.path.isfile(cur_json_file) or not cur_json_file.endswith(".json"):
             continue;
@@ -150,11 +152,10 @@ def parse(indir, features, outfile, pad):
                 else:
                     node_label = tinfo[n][3];
 
-                split1 = tp.getClade(n, tinfo);
-                split1.sort();
-                #print(cur_clade);
+                split1 = sorted(tp.getClade(n, tinfo), key=str.casefold);
+
                 split2 = [ n2 for n2 in tinfo if tinfo[n2][2] == 'tip' and n2 not in split1 ];
-                split2.sort();
+                split2 = sorted(split2, key=str.casefold);
 
                 splits[node_label].append(";".join(split1));
                 splits[node_label].append(";".join(split2));

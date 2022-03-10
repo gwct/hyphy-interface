@@ -108,6 +108,23 @@ def isPosInt(numstr):
 
 #############################################################################
 
+def isPosFloat(numstr, maxval=False):
+# Check if a string is a positive integer
+    try:
+        num = float(numstr);
+    except:
+        return False;
+
+    if num > 0:
+        if maxval and num <= maxval:
+            return num;
+        else:
+            return False;
+    else:
+        return False;
+
+#############################################################################
+
 def printWrite(o_name, v, o_line1, o_line2="", pad=0):
 # Function to print a string AND write it to the file.
     if o_line2 == "":
