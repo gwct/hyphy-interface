@@ -315,7 +315,7 @@ def parseOLD(indir, features, outfile, pad):
 def parse(indir, features, outfile, pad):
 
     alpha = 0.01;
-    hpcore.PWS(hpcore.spacedOut("# Original alpha significance threshold", pad) + str(alpha), outfile);
+    hpcore.PWS("# Original alpha significance threshold" + "\t" + str(alpha), outfile);
     print("alpha: ", alpha);
 
     out_mode = "splits";
@@ -326,10 +326,10 @@ def parse(indir, features, outfile, pad):
     num_files = len(hyphy_files);
     num_files_str = str(num_files);
     num_files_len = len(num_files_str);
-    hpcore.PWS(hpcore.spacedOut("# Number of files (tests performed)", pad) + str(num_files), outfile);
+    hpcore.PWS("# Number of files (tests performed)" + "\t" + str(num_files), outfile);
 
     adj_alpha = alpha / num_files;
-    hpcore.PWS(hpcore.spacedOut("# Bonferronie adjusted alpha significance level", pad) + str(adj_alpha), outfile);
+    hpcore.PWS("# Bonferroni adjusted alpha significance level" + "\t" + str(adj_alpha), outfile);
     hpcore.PWS("# ----------------", outfile);
 
     # Read align file names from input directory
@@ -343,17 +343,17 @@ def parse(indir, features, outfile, pad):
 
     if features:
         if out_mode == "splits":
-            gene_headers = ["file","id","chr","start","end","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha"];
+            gene_headers = ["file","id","chr","start","end","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha","branches pval less than alpha"];
             branch_headers = ["file","id","chr","start","end","branch","split1","split2","baseline omega","pval","lrt","rate classes"];
         elif out_mode == "clades":
-            gene_headers = ["file","id","chr","start","end","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha"];
+            gene_headers = ["file","id","chr","start","end","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha","branches pval less than alpha"];
             branch_headers = ["file","id","chr","start","end","branch","clade","baseline omega","pval","lrt","rate classes"];
     else:
         if out_mode == "splits":
-            gene_headers = ["file","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha"];
+            gene_headers = ["file","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha","branches pval less than alpha"];
             branch_headers = ["file","branch","split1","split2","baseline omega","pval","lrt","rate classes"];
         elif out_mode == "clades":
-            gene_headers = ["file","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha"];
+            gene_headers = ["file","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha","branches pval less than alpha"];
             branch_headers = ["file","branch","clade","baseline omega","pval","lrt","rate classes"];
     outfile.write(",".join(gene_headers) + "\n");
 
@@ -434,6 +434,7 @@ def parse(indir, features, outfile, pad):
             gene_info["end"] = cur_feature["end"];
         gene_info["baseline mean omega"] = cur_data["fits"]["Baseline MG94xREV"]["Rate Distributions"]["Per-branch omega"]["Mean"];
         gene_info["baseline median omega"] = cur_data["fits"]["Baseline MG94xREV"]["Rate Distributions"]["Per-branch omega"]["Median"];
+        gene_info["branches pval less than alpha"] = "";
         # Lookup the gene info in the json
 
         ##########################
@@ -508,6 +509,7 @@ def parse(indir, features, outfile, pad):
                     sig = True;
                     num_sig_branches += 1;
                     gene_info["num branches pval less than alpha"] += 1;
+                    gene_info["branches pval less than alpha"] += node + ";";
                     
                 branch_info[node]['lrt'] = cur_data["branch attributes"]["0"][node]["LRT"];
                 branch_info[node]['rate classes'] = cur_data["branch attributes"]["0"][node]["Rate classes"];
