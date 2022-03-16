@@ -343,17 +343,17 @@ def parse(indir, features, outfile, pad):
 
     if features:
         if out_mode == "splits":
-            gene_headers = ["file","id","chr","start","end","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha","branches pval less than alpha"];
+            gene_headers = ["file","id","chr","start","end","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha","branches pval less than alpha", "pvals less than alpha"];
             branch_headers = ["file","id","chr","start","end","branch","split1","split2","baseline omega","pval","lrt","rate classes"];
         elif out_mode == "clades":
-            gene_headers = ["file","id","chr","start","end","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha","branches pval less than alpha"];
+            gene_headers = ["file","id","chr","start","end","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha","branches pval less than alpha", "pvals less than alpha"];
             branch_headers = ["file","id","chr","start","end","branch","clade","baseline omega","pval","lrt","rate classes"];
     else:
         if out_mode == "splits":
-            gene_headers = ["file","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha","branches pval less than alpha"];
+            gene_headers = ["file","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha","branches pval less than alpha", "pvals less than alpha"];
             branch_headers = ["file","branch","split1","split2","baseline omega","pval","lrt","rate classes"];
         elif out_mode == "clades":
-            gene_headers = ["file","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha","branches pval less than alpha"];
+            gene_headers = ["file","baseline mean omega","baseline median omega","num branches","num branches pval less than alpha","branches pval less than alpha", "pvals less than alpha"];
             branch_headers = ["file","branch","clade","baseline omega","pval","lrt","rate classes"];
     outfile.write(",".join(gene_headers) + "\n");
 
@@ -435,6 +435,7 @@ def parse(indir, features, outfile, pad):
         gene_info["baseline mean omega"] = cur_data["fits"]["Baseline MG94xREV"]["Rate Distributions"]["Per-branch omega"]["Mean"];
         gene_info["baseline median omega"] = cur_data["fits"]["Baseline MG94xREV"]["Rate Distributions"]["Per-branch omega"]["Median"];
         gene_info["branches pval less than alpha"] = "";
+        gene_info["pvals less than alpha"] = "";
         # Lookup the gene info in the json
 
         ##########################
@@ -510,6 +511,7 @@ def parse(indir, features, outfile, pad):
                     num_sig_branches += 1;
                     gene_info["num branches pval less than alpha"] += 1;
                     gene_info["branches pval less than alpha"] += node + ";";
+                    gene_info["pvals less than alpha"] += str(cur_data["branch attributes"]["0"][node]["Corrected P-value"]) + ";";
                     
                 branch_info[node]['lrt'] = cur_data["branch attributes"]["0"][node]["LRT"];
                 branch_info[node]['rate classes'] = cur_data["branch attributes"]["0"][node]["Rate classes"];
@@ -539,6 +541,9 @@ def parse(indir, features, outfile, pad):
 
         if sig:
             num_sig_genes += 1;
+            gene_info["branches pval less than alpha"] = gene_info["branches pval less than alpha"][:-1];
+            gene_info["pvals less than alpha"] = gene_info["pvals less than alpha"][:-1];
+            # Remove the trailing semi-colons
         gene_outline = [ str(gene_info[h]) for h in gene_headers ];
         outfile.write(",".join(gene_outline) + "\n");
         # Write the output for the current gene
