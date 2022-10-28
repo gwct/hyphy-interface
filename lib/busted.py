@@ -3,7 +3,7 @@
 # 11.2020
 ############################################################
 
-import sys, os, json, re, lib.hpcore as hpcore, lib.hpseq as hpseq, lib.hptree as tp
+import sys, os, json, re, hpcore, hpseq, hptree as tp
 from collections import defaultdict
 
 ############################################################

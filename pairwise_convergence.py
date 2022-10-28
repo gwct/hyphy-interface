@@ -9,7 +9,7 @@
 
 # pairwise_convergence.py -i full-coding-mg94-local-rooted-anc/ -b TEST/branch-counts.csv -t ../docs/data/trees/full_coding_iqtree_astral.cf.rooted.tree -o test.csv --overwrite
 
-import sys, os, json, argparse, timeit, lib.hpcore as hpcore, lib.hptree as tp, lib.hpseq as hpseq
+import sys, os, json, argparse, timeit, hpcore, hpse, hptree as tp
 from collections import defaultdict
 
 ############################################################
