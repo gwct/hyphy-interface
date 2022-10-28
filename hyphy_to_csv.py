@@ -3,7 +3,12 @@
 # Reads results from Hyphy json output
 ############################################################
 
-import sys, os, argparse, lib.hpcore as hpcore
+import sys, os, argparse
+this_file = os.path.realpath(__file__);
+here = os.path.dirname(this_file);
+lib_dir = os.path.join(here, "lib");
+sys.path.append(lib_dir);
+import hpcore
 
 ############################################################
 # Options
