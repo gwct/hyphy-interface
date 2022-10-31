@@ -1,5 +1,5 @@
 #!/bin/bash
-#PURPOSE: Replace 'inf' with 'Infinity' and 'null' with 'NaN'; this is necessary to make HyPhy output compatible with Python
+#PURPOSE: Replace 'inf' with 'Infinity' and 'null' with 'NaN' and '-nan' with 'NaN'; this is necessary to make HyPhy output compatible with Python
 
 if [ "$#" -ne 1 ]; then
     echo "Error: an input file command line argument is required"
