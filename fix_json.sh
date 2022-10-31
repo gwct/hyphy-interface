@@ -11,4 +11,5 @@ echo "Input file: ${infile}"
 #Comma is so that words like "information" don't get replaced
 sed -i 's/inf,/Infinity,/g' ${infile}
 sed -i 's/null/NaN/g' ${infile}
+sed -i 's/-nan/NaN/g' ${infile}
 echo "Done!"
