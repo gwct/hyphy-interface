@@ -56,3 +56,9 @@ This method is being developed in the branch-rates folder.
 | hyphy_gen.py | Generates HyPhy commands given alignments, trees, and a model |
 | hypyh_to_csv.py | Converts and combines Hyphy json output to .csv format for easy analysis |
 | multiple_test_correction.r | A script to correct for multiple tests in the aBSREL model |
+
+## Acknowledgements
+
+This material is based upon work supported by the National Science Foundation under Grant Number (DEB 1754096).
+
+Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.
